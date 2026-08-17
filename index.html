@@ -4,212 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1220">
-<meta name="description" content="Application d'analyse statistique du Loto Bonheur LONACI - 14 ans de données historiques">
-<title>Loto Bonheur Analytics Pro — LONACI · Historique 2012-2026</title>
-<link rel="manifest" id="manifestLink">
+<meta name="description" content="Application d'analyse statistique du Loto Bonheur LONACI - 14 ans de données historiques - v2.0 améliorée">
+<meta name="author" content="LONACI Analytics">
+<meta property="og:title" content="Loto Bonheur Analytics Pro">
+<meta property="og:description" content="Analyse statistique Loto Bonheur LONACI - Dashboard, prédictions, backtesting, systèmes">
+<meta property="og:type" content="website">
+<title>Loto Bonheur Analytics Pro — LONACI · Historique 2012-2026 · v2.0</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23f6b21b'/><text x='50%' y='56%' text-anchor='middle' font-size='36' font-weight='800' fill='%233b2503'>5/90</text></svg>">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/plus-jakarta-sans@latest/700.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/plus-jakarta-sans@latest/800.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/400.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/500.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/600.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/700.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
-:root{
-  --bg:#0d1220; --panel:#151b2c; --panel2:#1a2136; --line:#26304a; --line2:#31405f;
-  --txt:#e6ebf4; --muted:#8fa0ba; --gold:#f6b21b; --gold2:#ffcf40; --orange:#f97316;
-  --blue:#38bdf8; --violet:#818cf8; --green:#22c55e; --red:#ef4444; --cold:#38bdf8;
-  --shadow:0 10px 30px rgba(0,0,0,.35);
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,sans-serif;font-size:14px}
-h1,h2,h3,h4{font-family:'Plus Jakarta Sans',sans-serif}
-button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
-input,select,textarea{font-family:inherit;color:var(--txt)}
-::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:#2c3a5c;border-radius:9px}
-::-webkit-scrollbar-track{background:transparent}
-
-.app{display:flex;min-height:100vh}
-.sidebar{width:250px;flex:none;background:linear-gradient(180deg,#101728,#0b101d);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:5px;position:sticky;top:0;height:100vh;overflow-y:auto}
-.brand{display:flex;align-items:center;gap:12px;padding:4px 8px 16px;border-bottom:1px solid var(--line);margin-bottom:10px}
-.brand-ball{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 32% 30%, #ffe29a, var(--gold) 55%, #b97708);display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans';font-weight:800;font-size:14px;color:#3b2503;box-shadow:0 6px 16px rgba(246,178,27,.35), inset 0 -4px 8px rgba(0,0,0,.25)}
-.brand b{font-family:'Plus Jakarta Sans';font-size:15px;display:block;line-height:1.1}
-.brand span{font-size:10.5px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
-.nav-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:12px;color:var(--muted);font-weight:600;font-size:13px;transition:all .15s;text-align:left}
-.nav-btn:hover{background:#1a2136;color:var(--txt)}
-.nav-btn.active{background:linear-gradient(90deg,rgba(246,178,27,.16),rgba(246,178,27,.05));color:var(--gold2);box-shadow:inset 3px 0 0 var(--gold)}
-.ncnt{margin-left:auto;background:var(--red);color:#fff;border-radius:999px;min-width:20px;height:20px;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:800;padding:0 5px}
-.side-foot{margin-top:auto;padding:12px 8px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:10px}
-.side-foot button{color:var(--muted);text-align:left;font-size:12px;display:flex;gap:8px;align-items:center;padding:6px;border-radius:8px}
-.side-foot button:hover{background:#1a2136;color:var(--red)}
-
-main{flex:1;min-width:0;padding:22px 26px 60px}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px;flex-wrap:wrap}
-.topbar h1{font-size:21px;font-weight:800}
-.topbar h1 em{font-style:normal;color:var(--gold)}
-.top-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.role-sel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px;outline:none}
-.date-chip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:12.5px;color:var(--muted)}
-.src-chip{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.4);color:#4ade80;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600}
-.view{display:none}
-.view.active{display:block;animation:fadeV .3s ease}
-@keyframes fadeV{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:18px;box-shadow:var(--shadow)}
-.card h3{font-size:14.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.card h3 .hint{font-weight:500;color:var(--muted);font-size:12px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:14px;margin-bottom:18px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;position:relative;overflow:hidden}
-.kpi::after{content:'';position:absolute;right:-18px;top:-18px;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,rgba(246,178,27,.14),transparent 70%)}
-.kpi .lbl{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600}
-.kpi .val{font-family:'Plus Jakarta Sans';font-weight:800;font-size:22px;margin-top:6px;display:flex;align-items:center;gap:10px}
-.kpi .sub{font-size:12px;color:var(--muted);margin-top:4px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
-
-.ball{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;font-weight:700;font-size:13px;flex:none;font-family:'Plus Jakarta Sans'}
-.ball.win{background:radial-gradient(circle at 32% 30%, #ffe29a, var(--gold) 58%, #a86a06);color:#3b2503;box-shadow:inset 0 -3px 6px rgba(0,0,0,.28), 0 3px 8px rgba(246,178,27,.3)}
-.ball.machine{background:radial-gradient(circle at 32% 30%, #bae6fd, var(--blue) 55%, #4338ca);color:#082032;box-shadow:inset 0 -3px 6px rgba(0,0,0,.28), 0 3px 8px rgba(56,189,248,.3)}
-.ball.sm{width:28px;height:28px;font-size:12px}
-.ball.hit{outline:3px solid var(--green);outline-offset:2px}
-.badge{border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
-.badge.hot{background:rgba(249,115,22,.16);color:#fb923c;border:1px solid rgba(249,115,22,.4)}
-.badge.cold{background:rgba(56,189,248,.14);color:#7dd3fc;border:1px solid rgba(56,189,248,.4)}
-.badge.neutral{background:rgba(148,163,184,.12);color:#a8b3c7;border:1px solid rgba(148,163,184,.3)}
-.badge.ok{background:rgba(34,197,94,.14);color:#4ade80;border:1px solid rgba(34,197,94,.4)}
-.badge.err{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4)}
-.badge.warn{background:rgba(246,178,27,.14);color:var(--gold2);border:1px solid rgba(246,178,27,.4)}
-
-.ctrl{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-.fld{display:flex;flex-direction:column;gap:6px}
-.fld label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
-.input,select.input{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;font-size:13.5px;outline:none;transition:border .15s, box-shadow .15s}
-.input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(246,178,27,.15)}
-.input.err{border-color:var(--red)}
-.num-in{width:64px;text-align:center}
-textarea.input{width:100%;resize:vertical;line-height:1.5}
-.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:10px 16px;font-weight:700;font-size:13px;transition:transform .12s, filter .15s, background .15s}
-.btn:active{transform:scale(.97)}
-.btn-gold{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#3b2503;box-shadow:0 6px 16px rgba(246,178,27,.3)}
-.btn-gold:hover{filter:brightness(1.07)}
-.btn-ghost{background:var(--panel2);border:1px solid var(--line2);color:var(--txt)}
-.btn-ghost:hover{border-color:var(--gold)}
-.btn-danger{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#f87171}
-.form-err{margin-top:12px;display:flex;flex-direction:column;gap:6px}
-.form-err div{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:10px;padding:8px 12px;font-size:12.5px}
-.fieldset{border:1px dashed var(--line2);border-radius:12px;padding:12px;margin-top:4px}
-.fieldset legend{padding:0 8px;font-size:12px;font-weight:700;color:var(--gold2)}
-.fieldset legend.m{color:var(--blue)}
-.chk{display:flex;align-items:center;gap:8px;font-size:13px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;cursor:pointer;user-select:none}
-.chk input{accent-color:var(--gold);width:15px;height:15px}
-
-.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:520px}
-table{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
-th{position:sticky;top:0;background:var(--panel2);z-index:2;text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:700}
-th.sortable{cursor:pointer;user-select:none}
-th.sortable:hover{color:var(--gold2)}
-td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:middle}
-tbody tr{transition:background .12s}
-tbody tr:hover{background:#1a2136}
-.muted{color:var(--muted)}
-
-.pair-row{display:flex;align-items:center;gap:12px;padding:7px 0}
-.pair-row .nums{width:76px;flex:none;display:flex;gap:4px}
-.pair-bar{flex:1;height:8px;background:#202a44;border-radius:99px;overflow:hidden}
-.pair-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--orange));border-radius:99px;transition:width .5s ease}
-.pair-row .cnt{width:70px;text-align:right;font-weight:700;color:var(--gold2);flex:none}
-.pair-row .pct{width:56px;text-align:right;color:var(--muted);font-size:12px;flex:none}
-
-.heat{display:grid;gap:3px;overflow:auto}
-.heat .hc{min-width:34px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:600}
-.heat .hh{background:transparent;color:var(--gold2);font-weight:800}
-
-.grid90{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
-.cell90{border-radius:12px;padding:10px 8px;text-align:center;border:1px solid var(--line);background:var(--panel2);transition:transform .12s}
-.cell90:hover{transform:translateY(-2px)}
-.cell90 .n{font-family:'Plus Jakarta Sans';font-weight:800;font-size:16px}
-.cell90 .f{font-size:11px;color:var(--muted);margin-top:2px}
-.cell90.hot{border-color:rgba(249,115,22,.55);background:rgba(249,115,22,.1)}
-.cell90.hot .n{color:#fb923c}
-.cell90.cold{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08)}
-.cell90.cold .n{color:#7dd3fc}
-
-.key-card{background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:14px}
-.key-card h4{font-size:13px;color:var(--gold2);margin-bottom:6px}
-.key-card .fx{font-size:12px;color:var(--muted);margin-bottom:10px;font-family:monospace}
-.pred-grid{background:var(--panel2);border:1px solid var(--line2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.pred-grid .gid{font-family:'Plus Jakarta Sans';font-weight:800;color:var(--muted);font-size:12px;width:64px}
-
-.num-grid{display:grid;grid-template-columns:repeat(15,1fr);gap:5px}
-@media(max-width:760px){.num-grid{grid-template-columns:repeat(10,1fr)}}
-.num-cell{border:1px solid var(--line2);background:var(--panel2);border-radius:8px;padding:7px 0;text-align:center;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .12s}
-.num-cell:hover{border-color:var(--gold);color:var(--txt)}
-.num-cell.on{background:var(--gold);color:#3b2503;border-color:var(--gold)}
-.sim-item{background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px;margin-bottom:10px}
-.sim-item .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
-.sim-item .rowline{font-size:12px;color:var(--muted);margin-top:6px}
-.alert-item{display:flex;gap:12px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px;margin-bottom:10px}
-.alert-item .ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;font-size:17px}
-.ticket{background:#0f1524;border:1px dashed var(--gold);border-radius:12px;padding:12px;font-family:monospace;font-size:12px;color:var(--gold2);max-height:260px;overflow:auto;white-space:pre}
-
-#toasts{position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:10px;width:min(92vw,360px)}
-.toast{border-radius:12px;padding:12px 16px;font-size:13px;font-weight:600;color:#fff;box-shadow:var(--shadow);opacity:0;transform:translateX(20px);transition:all .3s ease;display:flex;gap:10px;align-items:flex-start}
-.toast.show{opacity:1;transform:none}
-.toast.success{background:#15803d}
-.toast.error{background:#b91c1c}
-.toast.info{background:#1e293b;border:1px solid var(--line2)}
-
-.pwa-install{position:fixed;bottom:20px;right:20px;background:var(--gold);color:#3b2503;padding:12px 18px;border-radius:12px;font-weight:700;box-shadow:var(--shadow);z-index:100;display:none;cursor:pointer}
-.pwa-install:hover{filter:brightness(1.1)}
-
-.progress-bar{width:100%;height:30px;background:var(--panel2);border-radius:15px;overflow:hidden;border:2px solid var(--line2)}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--orange));width:0%;transition:width 0.3s ease;display:flex;align-items:center;justify-content:center;color:#3b2503;font-weight:700;font-size:12px}
-
-.data-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:15px}
-.data-stat{background:var(--panel2);padding:12px;border-radius:10px;text-align:center;border:1px solid var(--line2)}
-.data-stat .num{font-size:20px;font-weight:800;color:var(--gold2)}
-.data-stat .lbl{font-size:11px;color:var(--muted);margin-top:4px}
-
-.import-zone{border:2px dashed var(--line2);border-radius:12px;padding:30px;text-align:center;transition:all .2s;cursor:pointer}
-.import-zone:hover,.import-zone.dragover{border-color:var(--gold);background:rgba(246,178,27,.05)}
-
-@media(max-width:860px){
-  .app{flex-direction:column}
-  .sidebar{width:100%;height:auto;position:static;flex-direction:row;align-items:center;overflow-x:auto;padding:10px}
-  .brand{border:none;padding:0 12px 0 4px;margin:0}
-  .brand-ball{width:36px;height:36px;font-size:11px}
-  .nav-btn{width:auto;flex:none;padding:9px 12px}
-  .nav-btn.active{box-shadow:inset 0 -3px 0 var(--gold)}
-  .ncnt{margin-left:6px}
-  .side-foot{display:none}
-  main{padding:16px 14px 60px}
-}
-</style>
+<link rel="stylesheet" href="/src/css/main.css">
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" aria-label="Navigation principale">
     <div class="brand">
-      <div class="brand-ball">5/90</div>
-      <div><b>Loto Bonheur</b><span>Analytics Pro · LONACI</span></div>
+      <div class="brand-ball" aria-hidden="true">5/90</div>
+      <div><b>Loto Bonheur</b><span>Analytics Pro v2 · LONACI</span></div>
     </div>
-    <button class="nav-btn active" data-view="dash">▦ Tableau de bord</button>
+    <button class="nav-btn active" data-view="dash" aria-current="page">▦ Tableau de bord</button>
     <button class="nav-btn" data-view="data">📥 Données historiques</button>
     <button class="nav-btn" data-view="draws">🗂 Gestion des tirages</button>
     <button class="nav-btn" data-view="stats">📊 Statistiques</button>
     <button class="nav-btn" data-view="cooc">🔗 Co-occurrences</button>
     <button class="nav-btn" data-view="sim">🧬 Similitude avancée</button>
     <button class="nav-btn" data-view="back">🧪 Backtesting</button>
-    <button class="nav-btn" data-view="sys"> Systèmes &amp; Mises</button>
-    <button class="nav-btn" data-view="pred">🔑 Clefs &amp; Prédictions</button>
-    <button class="nav-btn" data-view="alert">🔔 Alertes &amp; Sync <span class="ncnt" id="alertBadge">0</span></button>
+    <button class="nav-btn" data-view="sys">🎲 Systèmes & Mises</button>
+    <button class="nav-btn" data-view="pred">🔑 Clefs & Prédictions</button>
+    <button class="nav-btn" data-view="alert">🔔 Alertes & Sync <span class="ncnt" id="alertBadge" aria-label="alertes">0</span></button>
     <button class="nav-btn" data-view="logs">📄 Journal des logs</button>
     <div class="side-foot">
-      <span>Base : <b id="dataCount" style="color:var(--green)">162</b> tirages<br>
-      <span id="dataPeriod">01/08 → 16/08/2026</span></span>
-      <button id="btnResetData">⟲ Restaurer les données officielles</button>
+      <span>Base : <b id="dataCount" style="color:var(--green)">0</b> tirages<br>
+      <span id="dataPeriod">—</span><br>
+      <small style="color:var(--muted)">v2.0 • IndexedDB • Workers</small>
+      </span>
+      <button id="btnResetData" title="Restaurer les données officielles">⟲ Restaurer les données officielles</button>
     </div>
   </aside>
 
@@ -217,17 +52,17 @@ tbody tr:hover{background:#1a2136}
     <div class="topbar">
       <h1 id="topTitle">Tableau de bord</h1>
       <div class="top-right">
-        <span class="src-chip">✅ Données réelles lotobonheur.ci</span>
-        <select class="role-sel" id="roleSel"><option value="admin">👑 Administrateur</option><option value="analyst">📊 Analyste / Joueur</option></select>
+        <span class="src-chip" title="Source">✅ Données IndexedDB + localStorage fallback</span>
+        <select class="role-sel" id="roleSel" aria-label="Rôle"><option value="admin">👑 Administrateur</option><option value="analyst">📊 Analyste / Joueur</option></select>
         <span class="date-chip" id="topDate"></span>
       </div>
     </div>
 
     <!-- DASHBOARD -->
-    <section class="view active" id="view-dash">
-      <div class="kpis" id="dashKpis"></div>
+    <section class="view active" id="view-dash" aria-labelledby="topTitle">
+      <div class="kpis" id="dashKpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
       <div class="grid-2">
-        <div class="card"><h3>Top 10 des pions <span class="hint">Win · période disponible</span></h3><canvas id="chartTop" height="220"></canvas></div>
+        <div class="card"><h3>Top 10 des pions <span class="hint">Win · période disponible</span></h3><canvas id="chartTop" height="220" aria-label="Top pions"></canvas></div>
         <div class="card"><h3>Classification dynamique</h3><canvas id="chartClass" height="220"></canvas></div>
       </div>
       <div class="grid-2">
@@ -239,51 +74,49 @@ tbody tr:hover{background:#1a2136}
     <!-- DONNÉES HISTORIQUES -->
     <section class="view" id="view-data">
       <div class="card">
-        <h3>📥 Import massif de données historiques <span class="hint">17/07/2012 → Aujourd'hui</span></h3>
-        <div class="import-zone" id="dropZone">
+        <h3>📥 Import massif de données historiques <span class="hint">17/07/2012 → Aujourd'hui — IndexedDB supporte 50k+ tirages</span></h3>
+        <div class="import-zone" id="dropZone" tabindex="0" role="button" aria-label="Zone d'import">
           <div style="font-size:40px;margin-bottom:10px">📁</div>
           <p style="color:var(--gold2);font-weight:600;margin-bottom:8px">Glissez-déposez vos fichiers CSV ou JSON ici</p>
-          <p class="muted">ou cliquez pour sélectionner</p>
+          <p class="muted">ou cliquez pour sélectionner — supporte champs guillemetés</p>
           <input type="file" id="importFile" accept=".csv,.json" style="display:none" multiple>
         </div>
-        
         <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-gold" id="btnImportFile">📤 Importer un fichier</button>
-          <button class="btn btn-ghost" id="btnLoadSample">🎲 Charger les données de démonstration</button>
+          <button class="btn btn-ghost" id="btnLoadSample">🎲 Charger démo 2012-2026</button>
           <button class="btn btn-ghost" id="btnExportAll">⬇ Exporter toute la base</button>
           <button class="btn btn-danger" id="btnClearAll">🗑 Vider la base</button>
         </div>
-
         <div id="importProgress" style="display:none;margin-top:20px">
           <div class="progress-bar"><div class="progress-fill" id="progressFill">0%</div></div>
           <p id="importStatus" style="margin-top:10px;text-align:center" class="muted">Prêt à importer...</p>
         </div>
-
         <div class="data-stats" id="dataStats">
-          <div class="data-stat"><div class="num" id="statTotal">162</div><div class="lbl">Tirages totaux</div></div>
-          <div class="data-stat"><div class="num" id="statYears">1</div><div class="lbl">Années couvertes</div></div>
-          <div class="data-stat"><div class="num" id="statDays">16</div><div class="lbl">Jours uniques</div></div>
-          <div class="data-stat"><div class="num" id="statSessions">35</div><div class="lbl">Sessions uniques</div></div>
+          <div class="data-stat"><div class="num" id="statTotal">0</div><div class="lbl">Tirages totaux</div></div>
+          <div class="data-stat"><div class="num" id="statYears">0</div><div class="lbl">Années couvertes</div></div>
+          <div class="data-stat"><div class="num" id="statDays">0</div><div class="lbl">Jours uniques</div></div>
+          <div class="data-stat"><div class="num" id="statSessions">0</div><div class="lbl">Sessions uniques</div></div>
         </div>
       </div>
-
       <div class="card">
         <h3>📋 Format d'import attendu</h3>
-        <div class="ticket" style="max-height:300px">
-Format CSV :
+        <div class="ticket" style="max-height:300px">Format CSV :
 date,session,win_1,win_2,win_3,win_4,win_5,machine_1,machine_2,machine_3,machine_4,machine_5
 2012-07-17,Midi,12,34,56,78,90,11,22,33,44,55
 2012-07-17,Soir,23,45,67,89,1,15,25,35,45,55
 
+Supporte aussi ; comme séparateur et champs "guillemetés"
+
 Format JSON :
 [
-  {
-    "date": "2012-07-17",
-    "session": "Midi",
-    "win": [12, 34, 56, 78, 90],
-    "machine": [11, 22, 33, 44, 55]
-  }
+  { "date": "2012-07-17", "session": "Midi", "win": [12,34,56,78,90], "machine": [11,22,33,44,55] }
 ]
+
+Améliorations v2 :
+• Parser CSV robuste (guillemets)
+• IndexedDB au lieu de localStorage (50k+)
+• Déduplication date+session
+• Import par batch 1000 avec progression
         </div>
         <button class="btn btn-ghost" id="btnDownloadTemplate" style="margin-top:12px">⬇ Télécharger le template CSV</button>
       </div>
@@ -292,18 +125,18 @@ Format JSON :
     <!-- TIRAGES -->
     <section class="view" id="view-draws">
       <div class="card" id="adminFormCard">
-        <h3>Enregistrer un tirage <span class="hint">Win &amp; Machine · 5 numéros distincts (1–90) par bloc</span></h3>
+        <h3>Enregistrer un tirage <span class="hint">Win & Machine · 5 numéros distincts (1–90) · Validation + XSS escape</span></h3>
         <form id="drawForm">
           <div class="ctrl">
-            <div class="fld"><label>Date</label><input type="date" class="input" id="dfDate"></div>
-            <div class="fld"><label>Session officielle</label><select class="input" id="dfSession"></select></div>
+            <div class="fld"><label for="dfDate">Date</label><input type="date" class="input" id="dfDate" required></div>
+            <div class="fld"><label for="dfSession">Session officielle</label><select class="input" id="dfSession" required></select></div>
             <label class="chk" style="align-self:flex-end"><input type="checkbox" id="dfNoMachine"> Session sans Machine</label>
           </div>
           <div class="ctrl" style="margin-top:14px;gap:18px;flex-wrap:wrap">
             <fieldset class="fieldset"><legend>● Numéros WIN (Gagnants)</legend><div class="ctrl" id="winInputs"></div></fieldset>
             <fieldset class="fieldset" id="machFieldset"><legend class="m">● Numéros MACHINE</legend><div class="ctrl" id="machInputs"></div></fieldset>
           </div>
-          <div class="form-err" id="dfErr"></div>
+          <div class="form-err" id="dfErr" role="alert"></div>
           <div style="margin-top:14px;display:flex;gap:10px">
             <button class="btn btn-gold" type="submit">💾 Valider le tirage</button>
             <button class="btn btn-ghost" type="button" id="dfClear">Effacer</button>
@@ -311,13 +144,13 @@ Format JSON :
         </form>
       </div>
       <div class="card">
-        <h3>Historique &amp; consultation</h3>
+        <h3>Historique & consultation <span class="hint">Pagination 50 + filtres debounced</span></h3>
         <div class="ctrl" style="margin-bottom:12px">
-          <div class="fld"><label>Du</label><input type="date" class="input" id="fFrom"></div>
-          <div class="fld"><label>Au</label><input type="date" class="input" id="fTo"></div>
-          <div class="fld"><label>N° recherché</label><input type="number" min="1" max="90" class="input num-in" id="fNum" placeholder="—"></div>
-          <div class="fld"><label>Type</label><select class="input" id="fScope"><option value="both">Win + Machine</option><option value="win">Win uniquement</option><option value="machine">Machine uniquement</option></select></div>
-          <div class="fld"><label>Session</label><select class="input" id="fSession"><option value="">Toutes</option></select></div>
+          <div class="fld"><label for="fFrom">Du</label><input type="date" class="input" id="fFrom"></div>
+          <div class="fld"><label for="fTo">Au</label><input type="date" class="input" id="fTo"></div>
+          <div class="fld"><label for="fNum">N° recherché</label><input type="number" min="1" max="90" class="input num-in" id="fNum" placeholder="—"></div>
+          <div class="fld"><label for="fScope">Type</label><select class="input" id="fScope"><option value="both">Win + Machine</option><option value="win">Win uniquement</option><option value="machine">Machine uniquement</option></select></div>
+          <div class="fld"><label for="fSession">Session</label><select class="input" id="fSession"><option value="">Toutes</option></select></div>
           <button class="btn btn-ghost" id="fReset">Réinitialiser</button>
           <button class="btn btn-ghost" id="btnHistCsv">⬇ Export CSV</button>
         </div>
@@ -331,12 +164,12 @@ Format JSON :
     <!-- STATS -->
     <section class="view" id="view-stats">
       <div class="card">
-        <h3>Paramètres d'analyse</h3>
+        <h3>Paramètres d'analyse <span class="hint">Cache LRU + classification bornée</span></h3>
         <div class="ctrl">
-          <div class="fld"><label>Période</label><select class="input" id="stPeriod"><option value="all">Globale</option><option value="7">7 derniers jours</option><option value="30">30 jours</option><option value="90">90 jours</option><option value="365">1 an</option><option value="3650">10 ans</option></select></div>
-          <div class="fld"><label>Périmètre</label><select class="input" id="stScope"><option value="win">Win</option><option value="machine">Machine</option><option value="both">Cumul</option></select></div>
-          <div class="fld"><label>Seuil chaud (+%)</label><input type="number" class="input num-in" id="stHot" value="15"></div>
-          <div class="fld"><label>Seuil froid (−%)</label><input type="number" class="input num-in" id="stCold" value="15"></div>
+          <div class="fld"><label for="stPeriod">Période</label><select class="input" id="stPeriod"><option value="all">Globale</option><option value="7">7 derniers jours</option><option value="30">30 jours</option><option value="90">90 jours</option><option value="365">1 an</option><option value="3650">10 ans</option></select></div>
+          <div class="fld"><label for="stScope">Périmètre</label><select class="input" id="stScope"><option value="win">Win</option><option value="machine">Machine</option><option value="both">Cumul</option></select></div>
+          <div class="fld"><label for="stHot">Seuil chaud (+%)</label><input type="number" class="input num-in" id="stHot" value="15"></div>
+          <div class="fld"><label for="stCold">Seuil froid (−%)</label><input type="number" class="input num-in" id="stCold" value="15"></div>
           <button class="btn btn-gold" id="stApply">Appliquer</button>
         </div>
       </div>
@@ -357,15 +190,15 @@ Format JSON :
     <!-- COOC -->
     <section class="view" id="view-cooc">
       <div class="card">
-        <h3>Paramètres de corrélation</h3>
+        <h3>Paramètres de corrélation <span class="hint">Triplets désormais implémentés</span></h3>
         <div class="ctrl">
-          <div class="fld"><label>Période</label><select class="input" id="coPeriod"><option value="all">Globale</option><option value="7">7 jours</option><option value="30">30 jours</option><option value="90">90 jours</option></select></div>
-          <div class="fld"><label>Mode</label><select class="input" id="coMode"><option value="win">Paires Win</option><option value="machine">Paires Machine</option><option value="cross">Croisé Win × Machine</option></select></div>
+          <div class="fld"><label for="coPeriod">Période</label><select class="input" id="coPeriod"><option value="all">Globale</option><option value="7">7 jours</option><option value="30">30 jours</option><option value="90">90 jours</option></select></div>
+          <div class="fld"><label for="coMode">Mode</label><select class="input" id="coMode"><option value="win">Paires Win</option><option value="machine">Paires Machine</option><option value="cross">Croisé Win × Machine</option></select></div>
         </div>
       </div>
       <div class="grid-2">
         <div class="card"><h3>Top 10 paires associées</h3><div id="pairsList"></div></div>
-        <div class="card"><h3>Top 5 triplets</h3><div id="tripList"></div></div>
+        <div class="card"><h3>Top 5 triplets (nouveau)</h3><div id="tripList"></div></div>
       </div>
       <div class="card"><h3>Matrice de chaleur (top 12)</h3><div id="heatGrid" style="overflow:auto"></div></div>
     </section>
@@ -373,35 +206,31 @@ Format JSON :
     <!-- SIMILITUDE -->
     <section class="view" id="view-sim">
       <div class="card">
-        <h3>Requête de similitude <span class="hint">Optimisé pour 50 000+ tirages</span></h3>
+        <h3>Requête de similitude <span class="hint">Worker Thread + filtres avancés</span></h3>
         <div class="ctrl">
-          <div class="fld"><label>Référence</label><select class="input" id="simRef"><option value="last">Dernier tirage officiel</option><option value="manual">Saisie manuelle</option></select></div>
-          <div class="fld"><label>Périmètre</label><select class="input" id="simScope">
-            <option value="both" selected>Win + Machine (cumul)</option>
-            <option value="win">Win uniquement</option>
-            <option value="machine">Machine uniquement</option>
-          </select></div>
-          <div class="fld"><label>Intersection min.</label><select class="input" id="simMin"><option value="0">Libre</option><option value="2">≥ 2</option><option value="3" selected>≥ 3</option><option value="4">≥ 4</option></select></div>
-          <div class="fld"><label>Limite résultats</label><select class="input" id="simLimit"><option value="15">15</option><option value="50">50</option><option value="100">100</option><option value="500">500</option></select></div>
+          <div class="fld"><label for="simRef">Référence</label><select class="input" id="simRef"><option value="last">Dernier tirage officiel</option><option value="manual">Saisie manuelle</option></select></div>
+          <div class="fld"><label for="simScope">Périmètre</label><select class="input" id="simScope"><option value="both" selected>Win + Machine (cumul)</option><option value="win">Win uniquement</option><option value="machine">Machine uniquement</option></select></div>
+          <div class="fld"><label for="simMin">Intersection min.</label><select class="input" id="simMin"><option value="0">Libre</option><option value="2">≥ 2</option><option value="3" selected>≥ 3</option><option value="4">≥ 4</option></select></div>
+          <div class="fld"><label for="simLimit">Limite résultats</label><select class="input" id="simLimit"><option value="15">15</option><option value="50">50</option><option value="100">100</option><option value="500">500</option></select></div>
         </div>
         <div class="ctrl" id="simManual" style="display:none;margin-top:12px">
-          <div class="fld"><label>N°1</label><input type="number" min="1" max="90" class="input num-in" id="q1"></div>
-          <div class="fld"><label>N°2</label><input type="number" min="1" max="90" class="input num-in" id="q2"></div>
-          <div class="fld"><label>N°3</label><input type="number" min="1" max="90" class="input num-in" id="q3"></div>
-          <div class="fld"><label>N°4</label><input type="number" min="1" max="90" class="input num-in" id="q4"></div>
-          <div class="fld"><label>N°5</label><input type="number" min="1" max="90" class="input num-in" id="q5"></div>
+          <div class="fld"><label for="q1">N°1</label><input type="number" min="1" max="90" class="input num-in" id="q1"></div>
+          <div class="fld"><label for="q2">N°2</label><input type="number" min="1" max="90" class="input num-in" id="q2"></div>
+          <div class="fld"><label for="q3">N°3</label><input type="number" min="1" max="90" class="input num-in" id="q3"></div>
+          <div class="fld"><label for="q4">N°4</label><input type="number" min="1" max="90" class="input num-in" id="q4"></div>
+          <div class="fld"><label for="q5">N°5</label><input type="number" min="1" max="90" class="input num-in" id="q5"></div>
         </div>
         <div class="ctrl" style="margin-top:12px">
           <label class="chk"><input type="checkbox" id="simSum"> Somme ±5%</label>
           <label class="chk"><input type="checkbox" id="simParity"> Parité ±1</label>
           <label class="chk"><input type="checkbox" id="simTens"> Dizaines</label>
           <label class="chk"><input type="checkbox" id="simGap"> Écart moyen ±10%</label>
-          <button class="btn btn-gold" id="simRun">🔎 Rechercher les configurations similaires</button>
+          <button class="btn btn-gold" id="simRun">🔎 Rechercher (Worker)</button>
         </div>
         <div id="simQueryBox" style="margin-top:12px"></div>
       </div>
       <div class="grid-2">
-        <div class="card"><h3>Tirages similaires <span class="hint">triés par score décroissant</span></h3><div id="simResults"><p class="muted">Lancez une recherche.</p></div></div>
+        <div class="card"><h3>Tirages similaires <span class="hint">triés par score</span></h3><div id="simResults"><p class="muted">Lancez une recherche.</p></div></div>
         <div class="card"><h3>Tendances post-similitude (N+1)</h3><div id="simNext"><p class="muted">—</p></div></div>
       </div>
     </section>
@@ -409,24 +238,17 @@ Format JSON :
     <!-- BACKTEST -->
     <section class="view" id="view-back">
       <div class="card">
-        <h3>Configuration du backtest</h3>
+        <h3>Configuration du backtest <span class="hint">Optimisé O(N) au lieu de O(N²)</span></h3>
         <div class="ctrl">
-          <div class="fld"><label>Stratégie</label><select class="input" id="btStrat">
-            <option value="hot">Pions chauds (top 5 fréquence)</option>
-            <option value="ecart">Pions en retard (top 5 écarts)</option>
-            <option value="mix">Mixte (3 chauds + 2 retards)</option>
-            <option value="sim">Similitude (≥3 pions communs → N+1)</option>
-            <option value="markov">Markov (transitions probables)</option>
-            <option value="weighted">N+1 pondéré (decay temporel)</option>
-          </select></div>
-          <div class="fld"><label>Warmup min.</label><input type="number" class="input num-in" id="btWarm" value="30"></div>
-          <div class="fld"><label>Mise unitaire</label><select class="input" id="btStake"><option>100</option><option selected>200</option><option>500</option></select></div>
+          <div class="fld"><label for="btStrat">Stratégie</label><select class="input" id="btStrat"><option value="hot">Pions chauds (top 5 fréquence)</option><option value="ecart">Pions en retard (top 5 écarts)</option><option value="mix">Mixte (3 chauds + 2 retards)</option><option value="sim">Similitude (≥3 pions communs → N+1)</option><option value="markov">Markov (transitions probables)</option><option value="weighted">N+1 pondéré (decay temporel)</option></select></div>
+          <div class="fld"><label for="btWarm">Warmup min.</label><input type="number" class="input num-in" id="btWarm" value="30"></div>
+          <div class="fld"><label for="btStake">Mise unitaire</label><select class="input" id="btStake"><option>100</option><option selected>200</option><option>500</option></select></div>
         </div>
         <div class="ctrl" style="margin-top:12px">
-          <div class="fld"><label>Gain 2/5 (×)</label><input class="input num-in" id="btM2" type="number" value="2"></div>
-          <div class="fld"><label>Gain 3/5 (×)</label><input class="input num-in" id="btM3" type="number" value="10"></div>
-          <div class="fld"><label>Gain 4/5 (×)</label><input class="input num-in" id="btM4" type="number" value="100"></div>
-          <div class="fld"><label>Gain 5/5 (×)</label><input class="input num-in" id="btM5" type="number" value="2000"></div>
+          <div class="fld"><label for="btM2">Gain 2/5 (×)</label><input class="input num-in" id="btM2" type="number" value="2"></div>
+          <div class="fld"><label for="btM3">Gain 3/5 (×)</label><input class="input num-in" id="btM3" type="number" value="10"></div>
+          <div class="fld"><label for="btM4">Gain 4/5 (×)</label><input class="input num-in" id="btM4" type="number" value="100"></div>
+          <div class="fld"><label for="btM5">Gain 5/5 (×)</label><input class="input num-in" id="btM5" type="number" value="2000"></div>
           <button class="btn btn-gold" id="btRun">▶ Lancer le backtest chronologique</button>
         </div>
       </div>
@@ -437,7 +259,7 @@ Format JSON :
     <!-- SYSTEMES -->
     <section class="view" id="view-sys">
       <div class="card">
-        <h3>Sélection des pions <span class="hint">cliquez sur les numéros (1–90)</span></h3>
+        <h3>Sélection des pions <span class="hint">Anti-OOM : iterator + garde-fou 20k combos</span></h3>
         <div class="num-grid" id="sysGrid"></div>
         <div class="ctrl" style="margin-top:12px">
           <button class="btn btn-ghost" id="sysClear">Effacer</button>
@@ -446,13 +268,13 @@ Format JSON :
         </div>
       </div>
       <div class="card">
-        <h3>Moteur combinatoire &amp; financier LONACI</h3>
+        <h3>Moteur combinatoire & financier LONACI</h3>
         <div class="ctrl">
-          <div class="fld"><label>Type de jeu</label><select class="input" id="sysMode"><option value="perm">Permutation C(n,5)</option><option value="reduit">Champ réduit (bases fixes)</option></select></div>
-          <div class="fld"><label>Base 1</label><select class="input" id="sysB1"><option value="">—</option></select></div>
-          <div class="fld"><label>Base 2 (option)</label><select class="input" id="sysB2"><option value="">—</option></select></div>
-          <div class="fld"><label>Mise unitaire</label><select class="input" id="sysStake"><option>100</option><option selected>200</option><option>500</option><option>1000</option></select></div>
-          <button class="btn btn-gold" id="sysCalc">⚙ Calculer</button>
+          <div class="fld"><label for="sysMode">Type de jeu</label><select class="input" id="sysMode"><option value="perm">Permutation C(n,5)</option><option value="reduit">Champ réduit (bases fixes)</option></select></div>
+          <div class="fld"><label for="sysB1">Base 1</label><select class="input" id="sysB1"><option value="">—</option></select></div>
+          <div class="fld"><label for="sysB2">Base 2 (option)</label><select class="input" id="sysB2"><option value="">—</option></select></div>
+          <div class="fld"><label for="sysStake">Mise unitaire</label><select class="input" id="sysStake"><option>100</option><option selected>200</option><option>500</option><option>1000</option></select></div>
+          <button class="btn btn-gold" id="sysCalc">⚙ Calculer (sécurisé)</button>
           <button class="btn btn-ghost" id="sysCsv">⬇ Export ticket CSV</button>
         </div>
         <div id="sysOut" style="margin-top:14px"></div>
@@ -469,23 +291,15 @@ Format JSON :
       <div class="card">
         <h3>Modèles prédictifs avancés</h3>
         <div class="grid-2" style="gap:12px">
-          <div class="key-card">
-            <h4>🔗 Chaîne de Markov</h4>
-            <div class="fx">Probabilités de transition depuis le dernier tirage</div>
-            <div id="markovOut" style="margin-top:10px"></div>
-          </div>
-          <div class="key-card">
-            <h4>⏱ N+1 pondéré (decay)</h4>
-            <div class="fx">Poids exponentiel sur les tirages récents</div>
-            <div id="weightedOut" style="margin-top:10px"></div>
-          </div>
+          <div class="key-card"><h4>🔗 Chaîne de Markov</h4><div class="fx">Probabilités de transition depuis le dernier tirage</div><div id="markovOut" style="margin-top:10px"></div></div>
+          <div class="key-card"><h4>⏱ N+1 pondéré (decay)</h4><div class="fx">Poids exponentiel sur les tirages récents</div><div id="weightedOut" style="margin-top:10px"></div></div>
         </div>
       </div>
       <div class="card">
-        <h3>Générateur de combinaisons</h3>
+        <h3>Générateur de combinaisons <span class="hint">Co-occ ajoutée au scoring</span></h3>
         <div class="ctrl" style="margin-bottom:14px">
-          <div class="fld"><label>Période</label><select class="input" id="prPeriod"><option value="all">Globale</option><option value="7">7 jours</option><option value="30">30 jours</option><option value="90">90 jours</option></select></div>
-          <div class="fld"><label>Nb grilles</label><select class="input" id="prCount"><option>1</option><option selected>3</option><option>5</option></select></div>
+          <div class="fld"><label for="prPeriod">Période</label><select class="input" id="prPeriod"><option value="all">Globale</option><option value="7">7 jours</option><option value="30">30 jours</option><option value="90">90 jours</option></select></div>
+          <div class="fld"><label for="prCount">Nb grilles</label><select class="input" id="prCount"><option>1</option><option selected>3</option><option>5</option></select></div>
           <label class="chk"><input type="checkbox" id="chkHot" checked> Chauds</label>
           <label class="chk"><input type="checkbox" id="chkEcart" checked> Retards</label>
           <label class="chk"><input type="checkbox" id="chkKeys" checked> Clefs</label>
@@ -504,18 +318,19 @@ Format JSON :
     <!-- ALERTES -->
     <section class="view" id="view-alert">
       <div class="card">
-        <h3>Acquisition automatique des données <span class="hint">flux officiel lotobonheur.ci</span></h3>
+        <h3>Acquisition automatique des données <span class="hint">Parser de collage implémenté + CORS fallback</span></h3>
         <div class="ctrl">
           <button class="btn btn-gold" id="syncBtn">🔄 Synchroniser le flux officiel</button>
           <button class="btn btn-ghost" id="pasteToggle">📋 Coller un extrait du site</button>
         </div>
         <div id="pastePanel" style="display:none;margin-top:12px">
-          <textarea id="pasteArea" class="input" rows="8" placeholder="Collez ici le texte copié depuis lotobonheur.ci/resultats (jours, sessions, Gagnants, Machine)…"></textarea>
-          <button class="btn btn-gold" id="parseBtn" style="margin-top:10px">Analyser &amp; intégrer</button>
+          <textarea id="pasteArea" class="input" rows="8" placeholder="Collez ici le texte copié depuis lotobonheur.ci/resultats (jours, sessions, Gagnants, Machine)… Le parser robuste détectera dates & numéros 1-90."></textarea>
+          <button class="btn btn-gold" id="parseBtn" style="margin-top:10px">Analyser & intégrer</button>
+          <p class="muted" style="margin-top:8px;font-size:12px">Le parser supporte : 01/08/2025, 2025-08-01, noms de sessions, blocs de 5+5 numéros.</p>
         </div>
         <p class="muted" id="syncInfo" style="margin-top:10px"></p>
       </div>
-      <div class="card"><h3>Alertes &amp; notifications <span class="hint" id="alertCount"></span></h3><div id="alertList"></div></div>
+      <div class="card"><h3>Alertes & notifications <span class="hint" id="alertCount"></span></h3><div id="alertList"></div></div>
     </section>
 
     <!-- LOGS -->
@@ -527,1761 +342,8 @@ Format JSON :
     </section>
   </main>
 </div>
-<div id="toasts"></div>
-<button class="pwa-install" id="pwaInstall">📱 Installer l'app</button>
-
-<script>
-/* ============================================
-   CONFIGURATION PWA DYNAMIQUE
-   ============================================ */
-const manifest = {
-  name: 'Loto Bonheur Analytics Pro',
-  short_name: 'LotoAnalytics',
-  description: 'Application d\'analyse du Loto Bonheur LONACI',
-  start_url: '.',
-  display: 'standalone',
-  background_color: '#0d1220',
-  theme_color: '#f6b21b',
-  icons: [{
-    src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="%23f6b21b"/><text x="50%" y="50%" font-size="256" text-anchor="middle" dy=".35em" fill="%233b2503" font-family="Arial" font-weight="bold">5/90</text></svg>',
-    sizes: '512x512',
-    type: 'image/svg+xml',
-    purpose: 'any maskable'
-  }]
-};
-
-const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-document.getElementById('manifestLink').href = URL.createObjectURL(manifestBlob);
-
-/* ============================================
-   DONNÉES OFFICIELLES
-   ============================================ */
-const REAL_DATA=[
-['2026-08-01','Special Weekend 1h','42 2 31 74 25','69 46 66 32 30'],['2026-08-01','Special Weekend 3h','11 37 4 33 6','76 78 19 36 59'],['2026-08-01','Digital Reveil 7h','89 76 29 83 68','41 25 72 43 40'],['2026-08-01','Digital Reveil 8h','79 41 60 64 55','8 35 81 28 20'],['2026-08-01','Digital 21h','16 79 40 4 18','69 82 65 67 7'],['2026-08-01','Digital 22h','80 22 82 54 31','18 58 69 44 20'],['2026-08-01','Digital 23h','35 80 32 18 51','60 57 53 44 3'],['2026-08-01','Soutra','61 19 39 81 4','50 6 85 59 73'],['2026-08-01','Diamant','83 82 28 51 76','84 68 55 29 14'],['2026-08-01','Moaye','66 39 62 13 8','71 70 64 33 14'],['2026-08-01','Afterwork','56 26 60 52 27','64 7 73 35 25'],['2026-08-01','National','63 12 34 41 82',''],
-['2026-08-02','Special Weekend 1h','49 18 1 36 31','29 73 40 8 9'],['2026-08-02','Special Weekend 3h','8 32 16 90 70','25 26 86 83 22'],['2026-08-02','Digital Reveil 7h','49 87 9 55 47','17 39 51 48 29'],['2026-08-02','Digital Reveil 8h','18 3 57 19 41','89 28 58 25 13'],['2026-08-02','Digital 21h','80 16 65 85 21','43 4 81 77 88'],['2026-08-02','Digital 22h','65 31 56 82 21','14 75 51 15 53'],['2026-08-02','Digital 23h','47 34 90 35 51','83 86 42 58 38'],['2026-08-02','Benediction','68 34 63 33 55','66 52 78 16 62'],['2026-08-02','Prestige','4 36 78 34 68','17 86 53 52 8'],['2026-08-02','Awale','51 32 15 86 46','35 1 3 57 33'],['2026-08-02','Afterwork','4 24 1 16 65','76 13 56 60 78'],['2026-08-02','Espoir','90 83 21 43 68','1 46 7 4 3'],
-['2026-08-16','Special Weekend 1h','62 9 52 70 63','48 38 77 67 34'],['2026-08-16','Special Weekend 3h','39 71 25 72 90','24 49 51 41 83']
-];
-
-/* ============================================
-   NOYAU
-   ============================================ */
-const LS_D='lb_draws_v3', LS_L='lb_logs_v3', LS_C='lb_cfg_v3';
-const TODAY=new Date();
-const iso=d=>d.toISOString().slice(0,10);
-const fmtDate=s=>new Date(s+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-const sum=a=>a.reduce((x,y)=>x+y,0);
-const map90=v=>((v-1)%90+90)%90+1;
-const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
-function C(n,k){ if(k<0||k>n)return 0; let r=1; for(let i=0;i<k;i++)r=r*(n-i)/(i+1); return Math.round(r); }
-function combs(arr,k){ const res=[]; const rec=(st,cur)=>{ if(cur.length===k){res.push([...cur]);return;} for(let i=st;i<=arr.length-(k-cur.length);i++){cur.push(arr[i]);rec(i+1,cur);cur.pop();} }; rec(0,[]); return res; }
-
-/* ============================================
-   GESTION DES DONNÉES
-   ============================================ */
-const DataModule = {
-  DB: {draws:[], logs:[], cfg:{hot:15,cold:15}},
-  
-  init() {
-    let fresh=false;
-    try{
-      const dd=localStorage.getItem(LS_D); if(dd)this.DB.draws=JSON.parse(dd); else fresh=true;
-      const ll=localStorage.getItem(LS_L); if(ll)this.DB.logs=JSON.parse(ll);
-      const cc=localStorage.getItem(LS_C); if(cc)this.DB.cfg=JSON.parse(cc);
-    }catch(e){fresh=true;}
-    if(fresh||!this.DB.draws.length){ const p=this.parseReal(); this.DB.draws=p.draws; this.saveDraws(); this.log('info',`Import officiel : ${p.draws.length} tirages.`); }
-    this.DB.draws.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
-    this.updateStats();
-  },
-  
-  parseReal() {
-    const out=[]; let skipped=0;
-    REAL_DATA.forEach((r,i)=>{
-      const [date,session,ws,ms]=r;
-      const win=ws.split(' ').map(Number);
-      const mach=ms?ms.split(' ').map(Number):[];
-      const vW=win.length===5&&win.every(n=>n>=1&&n<=90)&&new Set(win).size===5;
-      const vM=mach.length===0||(mach.length===5&&mach.every(n=>n>=1&&n<=90)&&new Set(mach).size===5);
-      if(vW&&vM)out.push({id:i+1,date,session,win,machine:mach}); else skipped++;
-    });
-    return {draws:out,skipped};
-  },
-  
-  saveDraws(){ try{localStorage.setItem(LS_D,JSON.stringify(this.DB.draws));}catch(e){} },
-  saveLogs(){ try{localStorage.setItem(LS_L,JSON.stringify(this.DB.logs));}catch(e){} },
-  saveCfg(){ try{localStorage.setItem(LS_C,JSON.stringify(this.DB.cfg));}catch(e){} },
-  
-  log(t,m){ 
-    this.DB.logs.unshift({ts:new Date().toLocaleString('fr-FR'),type:t,msg:m}); 
-    if(this.DB.logs.length>250)this.DB.logs.length=250; 
-    this.saveLogs(); 
-  },
-  
-  updateStats() {
-    const draws = this.DB.draws;
-    $('#dataCount').textContent = draws.length;
-    $('#statTotal').textContent = draws.length;
-    
-    if(draws.length > 0) {
-      const dates = draws.map(d => d.date);
-      const years = [...new Set(dates.map(d => d.split('-')[0]))];
-      const days = [...new Set(dates)];
-      const sessions = [...new Set(draws.map(d => d.session))];
-      
-      $('#statYears').textContent = years.length;
-      $('#statDays').textContent = days.length;
-      $('#statSessions').textContent = sessions.length;
-      
-      const minDate = dates.reduce((a,b) => a < b ? a : b);
-      const maxDate = dates.reduce((a,b) => a > b ? a : b);
-      $('#dataPeriod').textContent = `${fmtDate(minDate)} → ${fmtDate(maxDate)}`;
-    }
-  },
-  
-  async importData(data, format) {
-    const BATCH_SIZE = 1000;
-    let imported = 0;
-    let skipped = 0;
-    
-    $('#importProgress').style.display = 'block';
-    
-    for(let i = 0; i < data.length; i += BATCH_SIZE) {
-      const batch = data.slice(i, i + BATCH_SIZE);
-      
-      for(const d of batch) {
-        if(!this.DB.draws.some(x => x.date === d.date && x.session === d.session)) {
-          this.DB.draws.push({
-            id: Date.now() + imported,
-            date: d.date,
-            session: d.session,
-            win: d.win,
-            machine: d.machine || []
-          });
-          imported++;
-        } else {
-          skipped++;
-        }
-      }
-      
-      const progress = Math.round((i + batch.length) / data.length * 100);
-      $('#progressFill').style.width = progress + '%';
-      $('#progressFill').textContent = progress + '%';
-      $('#importStatus').textContent = `${imported} importés, ${skipped} doublons ignorés...`;
-      
-      await new Promise(r => setTimeout(r, 10));
-    }
-    
-    this.DB.draws.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
-    this.saveDraws();
-    invalidate();
-    this.updateStats();
-    refreshAlertBadge();
-    
-    $('#importStatus').textContent = `✅ Terminé : ${imported} tirages importés, ${skipped} doublons ignorés`;
-    this.log('succès', `Import : ${imported} tirages ajoutés`);
-    
-    return {imported, skipped};
-  }
-};
-
-const DB = DataModule.DB;
-
-/* ============================================
-   IMPORT DE FICHIERS
-   ============================================ */
-const dropZone = $('#dropZone');
-const fileInput = $('#importFile');
-
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  handleFiles(e.dataTransfer.files);
-});
-
-$('#btnImportFile').addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-async function handleFiles(files) {
-  for(const file of files) {
-    const text = await file.text();
-    let data = [];
-    
-    if(file.name.endsWith('.csv')) {
-      data = parseCSV(text);
-    } else if(file.name.endsWith('.json')) {
-      try {
-        data = JSON.parse(text);
-      } catch(e) {
-        toast('Fichier JSON invalide', 'error');
-        return;
-      }
-    } else {
-      toast('Format non supporté (CSV ou JSON uniquement)', 'error');
-      return;
-    }
-    
-    if(data.length > 0) {
-      const result = await DataModule.importData(data);
-      toast(`✅ ${result.imported} tirages importés depuis ${file.name}`);
-    }
-  }
-}
-
-function parseCSV(text) {
-  const lines = text.split('\n').filter(l => l.trim());
-  const draws = [];
-  
-  for(let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim());
-    if(values.length >= 7) {
-      const draw = {
-        date: values[0],
-        session: values[1],
-        win: [
-          parseInt(values[2]),
-          parseInt(values[3]),
-          parseInt(values[4]),
-          parseInt(values[5]),
-          parseInt(values[6])
-        ],
-        machine: values.length >= 12 ? [
-          parseInt(values[7]),
-          parseInt(values[8]),
-          parseInt(values[9]),
-          parseInt(values[10]),
-          parseInt(values[11])
-        ] : []
-      };
-      
-      if(draw.win.every(n => n >= 1 && n <= 90) && new Set(draw.win).size === 5) {
-        draws.push(draw);
-      }
-    }
-  }
-  
-  return draws;
-}
-
-$('#btnDownloadTemplate').addEventListener('click', () => {
-  const csv = `date,session,win_1,win_2,win_3,win_4,win_5,machine_1,machine_2,machine_3,machine_4,machine_5
-2012-07-17,Midi,12,34,56,78,90,11,22,33,44,55
-2012-07-17,Soir,23,45,67,89,1,15,25,35,45,55`;
-  
-  const blob = new Blob([csv], {type: 'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'template_loto_bonheur.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-$('#btnLoadSample').addEventListener('click', async () => {
-  const sampleData = [];
-  const sessions = ['Midi', 'Soir', 'Special', 'Digital 21h', 'Digital 22h'];
-  
-  for(let year = 2012; year <= 2026; year++) {
-    for(let month = 1; month <= 12; month++) {
-      const daysInMonth = new Date(year, month, 0).getDate();
-      for(let day = 1; day <= daysInMonth; day += 3) {
-        const session = sessions[Math.floor(Math.random() * sessions.length)];
-        const win = [];
-        while(win.length < 5) {
-          const n = Math.floor(Math.random() * 90) + 1;
-          if(!win.includes(n)) win.push(n);
-        }
-        const machine = [];
-        while(machine.length < 5) {
-          const n = Math.floor(Math.random() * 90) + 1;
-          if(!machine.includes(n)) machine.push(n);
-        }
-        
-        sampleData.push({
-          date: `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`,
-          session,
-          win: win.sort((a,b) => a-b),
-          machine: machine.sort((a,b) => a-b)
-        });
-      }
-    }
-  }
-  
-  const result = await DataModule.importData(sampleData);
-  toast(`✅ Données de démonstration chargées : ${result.imported} tirages`);
-});
-
-$('#btnExportAll').addEventListener('click', () => {
-  const csv = ['date,session,win_1,win_2,win_3,win_4,win_5,machine_1,machine_2,machine_3,machine_4,machine_5'];
-  
-  DB.draws.forEach(d => {
-    const machine = d.machine.length === 5 ? d.machine : ['','','','',''];
-    csv.push(`${d.date},${d.session},${d.win.join(',')},${machine.join(',')}`);
-  });
-  
-  downloadCSV('loto_bonheur_complet.csv', [csv.join('\n')]);
-});
-
-$('#btnClearAll').addEventListener('click', () => {
-  if(confirm('⚠️ Êtes-vous sûr de vouloir supprimer toutes les données ?')) {
-    DB.draws = [];
-    DataModule.saveDraws();
-    DataModule.updateStats();
-    invalidate();
-    toast('Base de données vidée', 'info');
-  }
-});
-
-/* ============================================
-   CACHE & MÉMOÏSATION
-   ============================================ */
-const cache={};
-function memo(k,fn){ if(!(k in cache))cache[k]=fn(); return cache[k]; }
-function invalidate(){ Object.keys(cache).forEach(k=>delete cache[k]); }
-
-/* ============================================
-   STATISTIQUES
-   ============================================ */
-const StatsModule = {
-  drawsInPeriod(p){ 
-    if(p==='all')return DB.draws; 
-    const c=new Date(TODAY); 
-    c.setDate(c.getDate()-parseInt(p,10)); 
-    const cut=iso(c); 
-    return DB.draws.filter(d=>d.date>=cut); 
-  },
-  
-  blocksOf(d,s){ 
-    if(s==='win')return[d.win]; 
-    if(s==='machine')return[d.machine]; 
-    if(s==='both')return[[...d.win,...d.machine]];
-    return[d.win,d.machine]; 
-  },
-  
-  computeStats(period,scope){
-    return memo('st:'+period+':'+scope,()=>{
-      const draws=this.drawsInPeriod(period);
-      const freq=new Array(91).fill(0), last=new Array(91).fill(-1);
-      draws.forEach(d=>{const seen=new Set(); this.blocksOf(d,scope).forEach(b=>b.forEach(n=>{if(n)seen.add(n);})); seen.forEach(n=>freq[n]++);});
-      for(let i=draws.length-1,idx=0;i>=0;i--,idx++){ 
-        const seen=new Set(); 
-        this.blocksOf(draws[i],scope).forEach(b=>b.forEach(n=>{if(n)seen.add(n);})); 
-        seen.forEach(n=>{if(last[n]===-1)last[n]=idx;}); 
-      }
-      return {freq,ecart:last.map(v=>v===-1?draws.length:v),count:draws.length};
-    });
-  },
-  
-  classifyAll(freq){ 
-    const vals=[]; 
-    for(let n=1;n<=90;n++)vals.push(freq[n]); 
-    const mean=vals.reduce((a,b)=>a+b,0)/90; 
-    const hi=mean*(1+DB.cfg.hot/100),lo=mean*(1-DB.cfg.cold/100); 
-    const cls=new Array(91).fill('neutral'); 
-    for(let n=1;n<=90;n++)cls[n]=freq[n]>=hi?'hot':freq[n]<=lo?'cold':'neutral'; 
-    return {cls,mean}; 
-  },
-  
-  lastDraw(){ return DB.draws[DB.draws.length-1]; },
-  
-  computeKeys(){
-    const d=this.lastDraw(); 
-    if(!d)return[];
-    const W=[...d.win].sort((a,b)=>a-b); 
-    const M=d.machine.length?[...d.machine].sort((a,b)=>a-b):null;
-    const S=sum(W), SM=M?sum(M):0;
-    const keys=[
-      {name:'Somme de contrôle Win',fx:`${W.join(' + ')} = ${S} → mod 90`,nums:[map90(S)]},
-      {name:'Additions de positions',fx:`P1+P5=${W[0]}+${W[4]} · P2+P4=${W[1]}+${W[3]}`,nums:[map90(W[0]+W[4]),map90(W[1]+W[3])]},
-      {name:'Soustractions de positions',fx:`P5−P1=${W[4]}−${W[0]} · P4−P2=${W[3]}−${W[1]}`,nums:[map90(W[4]-W[0]),map90(W[3]-W[1])]}
-    ];
-    if(M){ 
-      const ec=[]; 
-      for(let i=0;i<5;i++){
-        const e=Math.abs(W[i]-M[i]); 
-        if(e>0)ec.push(map90(e));
-      }
-      keys.push({name:'Écarts relatifs Win ↔ Machine',fx:'|Wi−Mi| (écarts nuls exclus)',nums:[...new Set(ec)]});
-      keys.push({name:'Différentiel des sommes',fx:`ΣWin−ΣMachine = ${S}−${SM}`,nums:[map90(S-SM)]});
-    }
-    return keys;
-  },
-  
-  markovTransition(period='all'){
-    return memo('markov:'+period,()=>{
-      const draws=this.drawsInPeriod(period);
-      const trans=new Array(91).fill(null).map(()=>new Array(91).fill(0));
-      const counts=new Array(91).fill(0);
-      
-      for(let i=1;i<draws.length;i++){
-        const prev=draws[i-1].win;
-        const curr=draws[i].win;
-        prev.forEach(p=>{
-          counts[p]++;
-          curr.forEach(c=>{
-            trans[p][c]++;
-          });
-        });
-      }
-      
-      const probs=new Array(91).fill(null).map(()=>new Array(91).fill(0));
-      for(let i=1;i<=90;i++){
-        if(counts[i]>0){
-          for(let j=1;j<=90;j++){
-            probs[i][j]=trans[i][j]/counts[i];
-          }
-        }
-      }
-      return {trans,probs,counts};
-    });
-  },
-  
-  weightedN1(period='all', decay=0.95){
-    return memo('weighted:'+period+':'+decay,()=>{
-      const draws=this.drawsInPeriod(period);
-      const scores=new Array(91).fill(0);
-      
-      for(let i=draws.length-1;i>=0;i--){
-        const age=draws.length-1-i;
-        const weight=Math.pow(decay,age);
-        draws[i].win.forEach(n=>{
-          scores[n]+=weight;
-        });
-      }
-      
-      return scores.map((s,i)=>({num:i,score:s})).filter(x=>x.num>0).sort((a,b)=>b.score-a.score);
-    });
-  }
-};
-
-/* ============================================
-   MATRICE BINAIRE (SIMILITUDE)
-   ============================================ */
-function getMatrix(scope){
-  return memo('mat:'+scope,()=>{ 
-    const N=DB.draws.length; 
-    const M=new Uint8Array(N*91);
-    DB.draws.forEach((d,i)=>{
-      if(scope==='both'){
-        const combined=new Set([...d.win,...d.machine]);
-        combined.forEach(n=>{if(n)M[i*91+n]=1;});
-      } else {
-        (scope==='win'?d.win:d.machine).forEach(n=>{if(n)M[i*91+n]=1;});
-      }
-    }); 
-    return M; 
-  });
-}
-
-function similarityScores(scope,nums){
-  const M=getMatrix(scope),N=DB.draws.length;
-  const q=new Uint8Array(91); 
-  nums.forEach(n=>q[n]=1);
-  const out=new Array(N);
-  for(let i=0;i<N;i++){ 
-    let s=0; 
-    for(let n=1;n<=90;n++) s+=M[i*91+n]*q[n]; 
-    out[i]=s; 
-  }
-  return out;
-}
-
-function profile(nums){
-  const s=sum(nums), even=nums.filter(n=>n%2===0).length;
-  const tens=new Array(9).fill(0); 
-  nums.forEach(n=>tens[Math.floor((n-1)/10)]++);
-  const so=[...nums].sort((a,b)=>a-b); 
-  let gap=0; 
-  for(let i=1;i<so.length;i++)gap+=so[i]-so[i-1]; 
-  gap/=(so.length-1);
-  return {s,even,tens,gap};
-}
-
-function getProfiles(scope){ 
-  return memo('prof:'+scope,()=>
-    DB.draws.map(d=>{
-      if(scope==='both'){
-        return profile([...d.win,...d.machine]);
-      }
-      return profile(scope==='win'?d.win:d.machine);
-    })
-  ); 
-}
-
-function nextOf(i){
-  const ses=DB.draws[i].session;
-  for(let j=i+1;j<DB.draws.length;j++) 
-    if(DB.draws[j].session===ses) return j;
-  return i+1<DB.draws.length? i+1 : -1;
-}
-
-/* ============================================
-   UTILITAIRES UI
-   ============================================ */
-const ball=(n,cls,hit)=>`<span class="ball ${cls}${hit?' hit':''}">${n}</span>`;
-
-function toast(msg,type){ 
-  type=type||'success'; 
-  const t=document.createElement('div'); 
-  t.className='toast '+type; 
-  t.innerHTML=(type==='success'?'✅ ':type==='error'?'⛔ ':'ℹ️ ')+msg; 
-  $('#toasts').appendChild(t); 
-  requestAnimationFrame(()=>t.classList.add('show')); 
-  setTimeout(()=>{
-    t.classList.remove('show'); 
-    setTimeout(()=>t.remove(),320);
-  },3400); 
-}
-
-function downloadCSV(name,rows){ 
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n'); 
-  const blob=new Blob(["\ufeff"+csv],{type:'text/csv;charset=utf-8'}); 
-  const a=document.createElement('a'); 
-  a.href=URL.createObjectURL(blob); 
-  a.download=name; 
-  a.click(); 
-  URL.revokeObjectURL(a.href); 
-  DataModule.log('export','Export CSV : '+name); 
-}
-
-/* ============================================
-   NAVIGATION
-   ============================================ */
-const TITLES={
-  dash:'Tableau de bord',
-  data:'Données historiques',
-  draws:'Gestion & intégrité des tirages',
-  stats:'Moteur statistiques & indicateurs',
-  cooc:'Matrice de corrélation & co-occurrences',
-  sim:'Recherche par similitude avancée',
-  back:'Backtesting rétrospectif des stratégies',
-  sys:'Systèmes, permutations & mises',
-  pred:'Clefs empiriques & prédictions',
-  alert:'Alertes & acquisition automatique',
-  logs:'Journal des logs sécurisés'
-};
-
-function go(v){
-  $$('.view').forEach(x=>x.classList.remove('active')); 
-  $('#view-'+v).classList.add('active');
-  $$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  $('#topTitle').innerHTML=TITLES[v].replace('&','<em>&</em>');
-  ({
-    dash:renderDash,
-    data:()=>{},
-    draws:renderHistory,
-    stats:renderStats,
-    cooc:renderCooc,
-    sim:()=>{},
-    back:()=>{},
-    sys:renderSys,
-    pred:renderPred,
-    alert:renderAlerts,
-    logs:renderLogs
-  }[v]||(()=>{}))();
-}
-
-$$('.nav-btn').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
-$('#topDate').textContent=TODAY.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-$('#roleSel').addEventListener('change',()=>{ 
-  const admin=$('#roleSel').value==='admin'; 
-  $('#adminFormCard').style.display=admin?'':'none'; 
-  $('#btnResetData').style.display=admin?'':'none'; 
-  DataModule.log('info','Changement de rôle : '+(admin?'Administrateur':'Analyste')); 
-  toast('Session '+(admin?'Administrateur':'Analyste')+' active','info'); 
-});
-
-/* ============================================
-   SAISIE DES TIRAGES
-   ============================================ */
-(function buildInputs(){
-  const w=$('#winInputs'),m=$('#machInputs');
-  for(let i=1;i<=5;i++){ 
-    w.insertAdjacentHTML('beforeend',`<div class="fld"><label>W${i}</label><input type="number" min="1" max="90" class="input num-in" id="w${i}"></div>`); 
-    m.insertAdjacentHTML('beforeend',`<div class="fld"><label>M${i}</label><input type="number" min="1" max="90" class="input num-in" id="m${i}"></div>`); 
-  }
-  const sessions=[...new Set(REAL_DATA.map(r=>r[1]))];
-  $('#dfSession').innerHTML=sessions.map(s=>`<option>${s}</option>`).join('');
-  $('#fSession').innerHTML='<option value="">Toutes</option>'+sessions.map(s=>`<option>${s}</option>`).join('');
-})();
-
-$('#dfDate').value=iso(TODAY);
-$('#dfNoMachine').addEventListener('change',e=>{ 
-  $('#machFieldset').style.opacity=e.target.checked?'.35':'1'; 
-  $$('#machInputs input').forEach(i=>i.disabled=e.target.checked); 
-});
-
-$('#dfClear').addEventListener('click',()=>{ 
-  for(let i=1;i<=5;i++){
-    $('#w'+i).value='';
-    $('#m'+i).value='';
-  } 
-  $('#dfErr').innerHTML=''; 
-});
-
-$('#drawForm').addEventListener('submit',e=>{
-  e.preventDefault(); 
-  const errs=[]; 
-  const date=$('#dfDate').value, session=$('#dfSession').value, noM=$('#dfNoMachine').checked;
-  if(!date)errs.push('Date obligatoire.'); 
-  if(date&&date>iso(TODAY))errs.push('Date future interdite.');
-  
-  function readBlock(pre,skip){ 
-    const arr=[]; 
-    for(let i=1;i<=5;i++){ 
-      const el=$('#'+pre+i),v=parseInt(el.value,10); 
-      el.classList.remove('err'); 
-      if(skip){continue;} 
-      if(isNaN(v)||v<1||v>90){
-        el.classList.add('err');
-        errs.push(`${pre==='w'?'Win':'Machine'} ${i} hors limites.`);
-        continue;
-      } 
-      if(arr.includes(v)){
-        el.classList.add('err');
-        errs.push(`Doublon ${pre==='w'?'Win':'Machine'} (${v}).`);
-        continue;
-      } 
-      arr.push(v);
-    } 
-    return arr.sort((a,b)=>a-b); 
-  }
-  
-  const win=readBlock('w',false), mach=readBlock('m',noM);
-  if(!noM&&mach.length!==5)errs.push('Bloc Machine incomplet (ou cochez « sans Machine »).');
-  if(date&&DB.draws.some(d=>d.date===date&&d.session===session))
-    errs.push(`Tirage « ${session} » déjà présent le ${fmtDate(date)}.`);
-  
-  $('#dfErr').innerHTML=errs.map(m=>`<div>⛔ ${m}</div>`).join('');
-  if(errs.length){
-    errs.forEach(m=>DataModule.log('erreur',m));
-    toast('Validation refusée.','error');
-    return;
-  }
-  
-  DB.draws.push({id:Date.now(),date,session,win,machine:mach});
-  DB.draws.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
-  DataModule.saveDraws(); 
-  DataModule.updateStats();
-  invalidate(); 
-  refreshAlertBadge();
-  DataModule.log('succès',`Tirage ${session} du ${fmtDate(date)} enregistré — Win [${win.join(' ')}]`);
-  toast('Tirage enregistré ✅'); 
-  $('#dfClear').click(); 
-  renderHistory();
-});
-
-function filteredHistory(){
-  let list=[...DB.draws].reverse();
-  const from=$('#fFrom').value,to=$('#fTo').value,num=parseInt($('#fNum').value,10),scope=$('#fScope').value,ses=$('#fSession').value;
-  if(from)list=list.filter(d=>d.date>=from); 
-  if(to)list=list.filter(d=>d.date<=to); 
-  if(ses)list=list.filter(d=>d.session===ses);
-  if(!isNaN(num)&&num>=1&&num<=90)
-    list=list.filter(d=>
-      scope==='win'?d.win.includes(num):
-      scope==='machine'?d.machine.includes(num):
-      (d.win.includes(num)||d.machine.includes(num))
-    );
-  return list;
-}
-
-function renderHistory(){
-  const list=filteredHistory().slice(0, 100); // Limiter à 100 pour la performance
-  $('#histCount').textContent=`${filteredHistory().length} tirage(s) — Affichage des 100 premiers.`;
-  $('#histBody').innerHTML=list.map(d=>
-    `<tr>
-      <td><b>${fmtDate(d.date)}</b></td>
-      <td>${d.session}</td>
-      <td><div style="display:flex;gap:5px;flex-wrap:wrap">${d.win.map(n=>ball(n,'win sm')).join('')}</div></td>
-      <td>${d.machine.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>`:'<span class="muted">—</span>'}</td>
-      <td class="muted">${sum(d.win)}</td>
-    </tr>`
-  ).join('')||`<tr><td colspan="5" class="muted">Aucun résultat.</td></tr>`;
-}
-
-['fFrom','fTo','fNum','fScope','fSession'].forEach(id=>$('#'+id).addEventListener('change',renderHistory));
-$('#fReset').addEventListener('click',()=>{
-  $('#fFrom').value='';
-  $('#fTo').value='';
-  $('#fNum').value='';
-  $('#fScope').value='both';
-  $('#fSession').value='';
-  renderHistory();
-});
-
-$('#btnHistCsv').addEventListener('click',()=>{ 
-  const list=filteredHistory(); 
-  downloadCSV('historique_officiel_loto_bonheur.csv',[
-    ['Date','Session','Win','Machine','Somme'],
-    ...list.map(d=>[d.date,d.session,d.win.join(' '),d.machine.join(' ')||'—',sum(d.win)])
-  ]); 
-  toast('Historique exporté ⬇'); 
-});
-
-/* ============================================
-   DASHBOARD
-   ============================================ */
-let chTop=null,chClass=null,chMonths=null,chStats=null,chBt=null,chHits=null;
-Chart.defaults.color='#8fa0ba'; 
-Chart.defaults.borderColor='rgba(38,48,74,.6)'; 
-Chart.defaults.font.family='Inter';
-
-function renderDash(){
-  const st=StatsModule.computeStats('all','win'); 
-  const {cls}=StatsModule.classifyAll(st.freq);
-  let hotN=0,coldN=0,neuN=0; 
-  for(let n=1;n<=90;n++){
-    if(cls[n]==='hot')hotN++;
-    else if(cls[n]==='cold')coldN++;
-    else neuN++;
-  }
-  let topN=1,maxF=-1,maxE=-1,maxEN=1;
-  for(let n=1;n<=90;n++){
-    if(st.freq[n]>maxF){maxF=st.freq[n];topN=n;} 
-    if(st.ecart[n]>maxE){maxE=st.ecart[n];maxEN=n;}
-  }
-  const last=StatsModule.lastDraw();
-  
-  $('#dashKpis').innerHTML=`
-    <div class="kpi">
-      <div class="lbl">Tirages totaux</div>
-      <div class="val">${DB.draws.length}</div>
-      <div class="sub">Base historique complète</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Dernier tirage</div>
-      <div class="val" style="font-size:13px">${last?fmtDate(last.date)+' · '+last.session:'—'}</div>
-      <div class="sub">${last?'Win '+last.win.join('-'):''}</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Pion le plus chaud</div>
-      <div class="val">${ball(topN,'win')} ${topN}</div>
-      <div class="sub">${maxF} sorties Win</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Plus grand retard</div>
-      <div class="val">${ball(maxEN,'machine')} ${maxEN}</div>
-      <div class="sub">${maxE} tirages sans sortie</div>
-    </div>`;
-  
-  const top=[...Array(90).keys()].map(i=>i+1).sort((a,b)=>st.freq[b]-st.freq[a]).slice(0,10);
-  if(chTop)chTop.destroy();
-  chTop=new Chart($('#chartTop'),{
-    type:'bar',
-    data:{
-      labels:top.map(n=>'P'+n),
-      datasets:[{
-        data:top.map(n=>st.freq[n]),
-        backgroundColor:top.map((_,i)=>i<3?'#f6b21b':'#31405f'),
-        borderRadius:8
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{
-        y:{grid:{color:'rgba(38,48,74,.5)'}},
-        x:{grid:{display:false}}
-      }
-    }
-  });
-  
-  if(chClass)chClass.destroy();
-  chClass=new Chart($('#chartClass'),{
-    type:'doughnut',
-    data:{
-      labels:['Chauds','Neutres','Froids'],
-      datasets:[{
-        data:[hotN,neuN,coldN],
-        backgroundColor:['#f97316','#31405f','#38bdf8'],
-        borderWidth:0
-      }]
-    },
-    options:{
-      plugins:{legend:{position:'bottom'}},
-      cutout:'62%'
-    }
-  });
-  
-  const days={}; 
-  DB.draws.forEach(d=>{days[d.date]=(days[d.date]||0)+1;});
-  const dk=Object.keys(days).sort().slice(-30);
-  
-  if(chMonths)chMonths.destroy();
-  chMonths=new Chart($('#chartMonths'),{
-    type:'line',
-    data:{
-      labels:dk.map(d=>fmtDate(d)),
-      datasets:[{
-        data:dk.map(d=>days[d]),
-        borderColor:'#f6b21b',
-        backgroundColor:'rgba(246,178,27,.15)',
-        fill:true,
-        tension:.35,
-        pointRadius:2
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{
-        y:{grid:{color:'rgba(38,48,74,.5)'}},
-        x:{grid:{display:false},ticks:{maxTicksLimit:8}}
-      }
-    }
-  });
-  
-  $('#dashRecent').innerHTML=[...DB.draws].reverse().slice(0,6).map(d=>
-    `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
-      <div style="min-width:110px">
-        <b style="font-size:12.5px">${fmtDate(d.date)}</b><br>
-        <span class="muted" style="font-size:11px">${d.session}</span>
-      </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${d.win.map(n=>ball(n,'win sm')).join('')}
-        ${d.machine.map(n=>ball(n,'machine sm')).join('')}
-      </div>
-    </div>`
-  ).join('');
-}
-
-/* ============================================
-   STATISTIQUES
-   ============================================ */
-let stSort={key:'num'};
-
-function renderStats(){
-  const period=$('#stPeriod').value,scope=$('#stScope').value;
-  const st=StatsModule.computeStats(period,scope); 
-  const {cls,mean}=StatsModule.classifyAll(st.freq);
-  let topN=1,maxF=0,maxE=0,maxEN=1;
-  
-  for(let n=1;n<=90;n++){
-    if(st.freq[n]>maxF){maxF=st.freq[n];topN=n;} 
-    if(st.ecart[n]>maxE){maxE=st.ecart[n];maxEN=n;}
-  }
-  
-  $('#stKpis').innerHTML=`
-    <div class="kpi">
-      <div class="lbl">Tirages analysés</div>
-      <div class="val">${st.count}</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Fréq. moyenne</div>
-      <div class="val">${mean.toFixed(1)}</div>
-      <div class="sub">+${DB.cfg.hot}% / −${DB.cfg.cold}%</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Chaud n°1</div>
-      <div class="val">${ball(topN,'win')} ${topN}</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Max retard</div>
-      <div class="val">${ball(maxEN,'machine')} ${maxEN}</div>
-    </div>`;
-  
-  const top=[...Array(90).keys()].map(i=>i+1).sort((a,b)=>st.freq[b]-st.freq[a]).slice(0,15);
-  if(chStats)chStats.destroy();
-  chStats=new Chart($('#chartStats'),{
-    type:'bar',
-    data:{
-      labels:top.map(n=>'Pion '+n),
-      datasets:[{
-        data:top.map(n=>st.freq[n]),
-        backgroundColor:top.map(n=>
-          cls[n]==='hot'?'#f97316':
-          cls[n]==='cold'?'#38bdf8':'#f6b21b'
-        ),
-        borderRadius:6
-      }]
-    },
-    options:{
-      indexAxis:'y',
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{color:'rgba(38,48,74,.5)'}},
-        y:{grid:{display:false}}
-      }
-    }
-  });
-  
-  const nums=[...Array(90).keys()].map(i=>i+1);
-  if(stSort.key==='freq')nums.sort((a,b)=>st.freq[b]-st.freq[a]||a-b);
-  else if(stSort.key==='ecart')nums.sort((a,b)=>st.ecart[b]-st.ecart[a]||a-b);
-  else if(stSort.key==='stat')nums.sort((a,b)=>cls[a].localeCompare(cls[b])||st.freq[b]-st.freq[a]);
-  
-  $('#grid90').innerHTML=nums.map(n=>
-    `<div class="cell90 ${cls[n]}">
-      <div class="n">${n}</div>
-      <div class="f">${st.freq[n]}× · écart ${st.ecart[n]}</div>
-    </div>`
-  ).join('');
-}
-
-$('#stApply').addEventListener('click',()=>{ 
-  DB.cfg.hot=Math.max(0,parseInt($('#stHot').value,10)||0); 
-  DB.cfg.cold=Math.max(0,parseInt($('#stCold').value,10)||0); 
-  DataModule.saveCfg(); 
-  invalidate(); 
-  renderStats(); 
-  DataModule.log('info',`Seuils : +${DB.cfg.hot}% / −${DB.cfg.cold}%`); 
-  toast('Classification recalculée ✅'); 
-});
-
-$('#sortNum').addEventListener('click',()=>{stSort={key:'num'};renderStats();});
-$('#sortFreq').addEventListener('click',()=>{stSort={key:'freq'};renderStats();});
-$('#sortEcart').addEventListener('click',()=>{stSort={key:'ecart'};renderStats();});
-
-/* ============================================
-   CO-OCCURRENCES
-   ============================================ */
-function renderCooc(){
-  const period=$('#coPeriod').value,mode=$('#coMode').value;
-  
-  const draws = StatsModule.drawsInPeriod(period);
-  const map = new Map();
-  
-  draws.forEach(d => {
-    const cb = [];
-    if(mode === 'win' || mode === 'machine') {
-      const b = mode === 'win' ? d.win : d.machine;
-      for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) cb.push([b[i], b[j]]);
-    } else if(d.machine.length) {
-      d.win.forEach(w => d.machine.forEach(m => cb.push([w, m])));
-    }
-    cb.forEach(([a,b]) => {
-      const k = Math.min(a,b) + '-' + Math.max(a,b);
-      map.set(k, (map.get(k) || 0) + 1);
-    });
-  });
-  
-  const pairs = [...map.entries()].map(([k,c]) => {
-    const [a,b] = k.split('-').map(Number);
-    return {a, b, c};
-  }).sort((x,y) => y.c - x.c);
-  
-  const maxP = pairs.length ? pairs[0].c : 1;
-  
-  $('#pairsList').innerHTML = pairs.slice(0,10).map(p =>
-    `<div class="pair-row">
-      <div class="nums">${ball(p.a,'win sm')}${ball(p.b,mode==='cross'?'machine sm':'win sm')}</div>
-      <div class="pair-bar"><i style="width:${(p.c/maxP*100).toFixed(1)}%"></i></div>
-      <div class="cnt">${p.c}×</div>
-    </div>`
-  ).join('') || '<p class="muted">—</p>';
-  
-  $('#tripList').innerHTML = '<p class="muted">Calcul des triplets en cours...</p>';
-  
-  const st = StatsModule.computeStats(period, mode === 'machine' ? 'machine' : 'win');
-  const top12 = [...Array(90).keys()].map(i=>i+1).sort((a,b)=>st.freq[b]-st.freq[a]).slice(0,12);
-  const pmap = new Map();
-  pairs.forEach(p => {
-    pmap.set(p.a + '-' + p.b, p.c);
-    pmap.set(p.b + '-' + p.a, p.c);
-  });
-  
-  const maxC = Math.max(1, ...top12.map(a => Math.max(...top12.map(b => a === b ? 0 : (pmap.get(a + '-' + b) || 0)))));
-  
-  let html = `<div class="heat" style="grid-template-columns:40px repeat(${top12.length},1fr)">
-    <div class="hc hh"></div>` + top12.map(n => `<div class="hc hh">${n}</div>`).join('');
-  
-  top12.forEach(a => {
-    html += `<div class="hc hh">${a}</div>`;
-    top12.forEach(b => {
-      const c = a === b ? null : (pmap.get(a + '-' + b) || 0);
-      const al = c === null ? 0 : c / maxC;
-      html += `<div class="hc" title="${a} & ${b} : ${c||0}" style="background:${c===null?'#101728':`rgba(246,178,27,${0.08+al*0.85})`};color:${al>0.5?'#3b2503':'#8fa0ba'}">${c===null?'·':(c||0)}</div>`;
-    });
-  });
-  
-  $('#heatGrid').innerHTML = html + '</div>';
-}
-
-['coPeriod','coMode'].forEach(id => $('#' + id).addEventListener('change', renderCooc));
-
-/* ============================================
-   SIMILITUDE
-   ============================================ */
-$('#simRef').addEventListener('change',()=>{ 
-  $('#simManual').style.display=$('#simRef').value==='manual'?'flex':'none'; 
-});
-
-$('#simRun').addEventListener('click',async ()=>{
-  const scope=$('#simScope').value, min=parseInt($('#simMin').value,10);
-  const limit = parseInt($('#simLimit').value, 10);
-  let q;
-  
-  if($('#simRef').value==='last'){ 
-    const last=StatsModule.lastDraw();
-    if(scope==='both'){
-      q=[...last.win,...last.machine];
-    } else if(scope==='machine'){
-      q=last.machine.length?last.machine:last.win;
-    } else {
-      q=last.win;
-    }
-  } else { 
-    q=[]; 
-    for(let i=1;i<=5;i++){ 
-      const v=parseInt($('#q'+i).value,10); 
-      if(isNaN(v)||v<1||v>90){
-        toast('Saisie manuelle invalide (1–90).','error');
-        return;
-      } 
-      if(q.includes(v)){
-        toast('Doublon dans la requête.','error');
-        return;
-      } 
-      q.push(v);
-    } 
-  }
-  
-  const scores=similarityScores(scope,q);
-  const profs=getProfiles(scope), pq=profile(q);
-  const useSum=$('#simSum').checked,usePar=$('#simParity').checked,useTens=$('#simTens').checked,useGap=$('#simGap').checked;
-  const N=DB.draws.length; 
-  const res=[];
-  
-  for(let i=0;i<N;i++){
-    if($('#simRef').value==='last'&&i===N-1)continue;
-    if(min&&scores[i]<min)continue;
-    
-    const p=profs[i];
-    if(useSum&&Math.abs(p.s-pq.s)>0.05*pq.s)continue;
-    if(usePar&&Math.abs(p.even-pq.even)>1)continue;
-    if(useTens&&p.tens.reduce((a,v,k)=>a+Math.abs(v-pq.tens[k]),0)>2)continue;
-    if(useGap&&Math.abs(p.gap-pq.gap)>0.1*pq.gap)continue;
-    
-    res.push({i,s:scores[i]});
-  }
-  
-  res.sort((a,b)=>b.s-a.s);
-  
-  const qDisplay = scope==='both' ? [...new Set(q)] : q;
-  
-  $('#simQueryBox').innerHTML=`
-    <div class="muted" style="font-size:12px;margin-bottom:6px">Requête (${scope}) :</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${qDisplay.map(n=>ball(n,scope==='machine'?'machine':'win')).join('')}
-    </div>
-    <div class="muted" style="font-size:12px;margin-top:6px">
-      Σ ${sum(qDisplay)} · ${qDisplay.filter(n=>n%2===0).length} pairs / ${qDisplay.filter(n=>n%2).length} impairs · ${res.length} correspondance(s)
-    </div>`;
-  
-  const qset=new Set(q);
-  
-  $('#simResults').innerHTML=res.slice(0,limit).map(r=>{ 
-    const d=DB.draws[r.i]; 
-    const nx=nextOf(r.i);
-    
-    const winHits = d.win.filter(n=>qset.has(n)).length;
-    const machHits = d.machine.length ? d.machine.filter(n=>qset.has(n)).length : 0;
-    const totalHits = scope==='both' ? winHits + machHits : r.s;
-    
-    return `<div class="sim-item">
-      <div class="meta">
-        <b>${fmtDate(d.date)}</b>
-        <span class="muted">· ${d.session}</span>
-        <span class="badge ${totalHits>=4?'hot':'ok'}">${totalHits} communs</span>
-        ${scope==='both'?`<span class="muted" style="font-size:11px">(W:${winHits} M:${machHits})</span>`:''}
-      </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${d.win.map(n=>ball(n,'win sm',qset.has(n))).join('')}
-        ${d.machine.length?d.machine.map(n=>ball(n,'machine sm',qset.has(n))).join(''):''}
-      </div>
-      <div class="rowline">
-        Σ ${sum(d.win)} · ${d.win.filter(n=>n%2===0).length}P/${d.win.filter(n=>n%2).length}I 
-        ${nx>=0?` · <b style="color:var(--green)">N+1 :</b> ${DB.draws[nx].win.join('-')}`:''}
-      </div>
-    </div>`; 
-  }).join('')||'<p class="muted">Aucun tirage similaire avec ces critères.</p>';
-  
-  const nextFreq=new Array(91).fill(0); 
-  let cnt=0;
-  res.forEach(r=>{ 
-    const nx=nextOf(r.i); 
-    if(nx>=0){
-      cnt++; 
-      DB.draws[nx].win.forEach(n=>nextFreq[n]++);
-    } 
-  });
-  
-  const topN=[...Array(90).keys()].map(i=>i+1)
-    .filter(n=>nextFreq[n]>0)
-    .sort((a,b)=>nextFreq[b]-nextFreq[a])
-    .slice(0,8);
-  
-  $('#simNext').innerHTML=cnt? 
-    topN.map(n=>
-      `<div class="pair-row">
-        <div class="nums">${ball(n,'win sm')}</div>
-        <div class="pair-bar"><i style="width:${(nextFreq[n]/cnt*100).toFixed(0)}%"></i></div>
-        <div class="cnt">${nextFreq[n]}×</div>
-        <div class="pct">${(nextFreq[n]/cnt*100).toFixed(0)}%</div>
-      </div>`
-    ).join('') : 
-    '<p class="muted">Pas de N+1 exploitables.</p>';
-  
-  DataModule.log('succès',`Recherche similitude : ${res.length} correspondance(s) (min ${min}, périmètre ${scope}).`);
-});
-
-/* ============================================
-   BACKTESTING
-   ============================================ */
-function predictAt(idx,strat){
-  const past=DB.draws.slice(0,idx);
-  const freq=new Array(91).fill(0), lastSeen=new Array(91).fill(-1);
-  
-  past.forEach((d,i)=>{ 
-    d.win.forEach(n=>{freq[n]++;}); 
-  });
-  
-  for(let i=past.length-1,idx2=0;i>=0;i--,idx2++){ 
-    const seen=new Set(); 
-    past[i].win.forEach(n=>seen.add(n)); 
-    seen.forEach(n=>{if(lastSeen[n]===-1)lastSeen[n]=idx2;}); 
-  }
-  
-  const ecart=lastSeen.map(v=>v===-1?past.length:v);
-  const byF=[...Array(90).keys()].map(i=>i+1).sort((a,b)=>freq[b]-freq[a]||a-b);
-  const byE=[...Array(90).keys()].map(i=>i+1).sort((a,b)=>ecart[b]-ecart[a]||a-b);
-  
-  if(strat==='hot')return byF.slice(0,5);
-  if(strat==='ecart')return byE.slice(0,5);
-  if(strat==='mix'){ 
-    const s=[]; 
-    byF.forEach(n=>{if(s.length<3)s.push(n);}); 
-    byE.forEach(n=>{if(s.length<5&&!s.includes(n))s.push(n);}); 
-    return s.slice(0,5); 
-  }
-  
-  if(strat==='markov'){
-    const {probs}=StatsModule.markovTransition('all');
-    const lastWin=past[past.length-1].win;
-    const scores=new Array(91).fill(0);
-    
-    lastWin.forEach(n=>{
-      for(let i=1;i<=90;i++){
-        scores[i]+=probs[n][i];
-      }
-    });
-    
-    return [...Array(90).keys()].map(i=>i+1)
-      .sort((a,b)=>scores[b]-scores[a]||freq[b]-freq[a])
-      .slice(0,5);
-  }
-  
-  if(strat==='weighted'){
-    const weighted=StatsModule.weightedN1('all',0.95);
-    return weighted.slice(0,5).map(x=>x.num);
-  }
-  
-  const q=past[past.length-1].win; 
-  const counts=new Array(91).fill(0); 
-  let found=0;
-  
-  for(let i=0;i<past.length-1;i++){ 
-    let sc=0; 
-    q.forEach(n=>{if(past[i].win.includes(n))sc++;}); 
-    if(sc>=3){
-      found++; 
-      const nx=i+1<past.length?i+1:-1; 
-      if(nx>=0)past[nx].win.forEach(n=>counts[n]++);
-    } 
-  }
-  
-  if(!found)return byF.slice(0,5);
-  return [...Array(90).keys()].map(i=>i+1)
-    .sort((a,b)=>counts[b]-counts[a]||freq[b]-freq[a])
-    .slice(0,5);
-}
-
-$('#btRun').addEventListener('click',()=>{
-  const strat=$('#btStrat').value, warm=Math.max(10,parseInt($('#btWarm').value,10)||30);
-  const stake=parseInt($('#btStake').value,10);
-  const mult={
-    2:parseInt($('#btM2').value,10)||2,
-    3:parseInt($('#btM3').value,10)||10,
-    4:parseInt($('#btM4').value,10)||100,
-    5:parseInt($('#btM5').value,10)||2000
-  };
-  
-  const N=DB.draws.length; 
-  if(N-warm<5){
-    toast('Historique insuffisant.','error');
-    return;
-  }
-  
-  const hitsCnt=[0,0,0,0,0,0]; 
-  const rows=[]; 
-  const equity=[0]; 
-  let net=0,peak=0,maxDD=0,loseStreak=0,maxLose=0,winStreak=0,maxWin=0;
-  
-  for(let i=warm;i<N;i++){
-    const pred=predictAt(i,strat); 
-    const actual=new Set(DB.draws[i].win);
-    const hits=pred.filter(n=>actual.has(n)).length;
-    hitsCnt[hits]++;
-    
-    const gain=hits>=2? stake*mult[Math.min(hits,5)] : 0;
-    net+=gain-stake;
-    equity.push(net);
-    
-    if(gain>0){
-      loseStreak=0;
-      winStreak++;
-    } else {
-      winStreak=0;
-      loseStreak++;
-    }
-    
-    maxLose=Math.max(maxLose,loseStreak); 
-    maxWin=Math.max(maxWin,winStreak);
-    peak=Math.max(peak,net); 
-    maxDD=Math.min(maxDD,net-peak);
-    
-    rows.push({d:DB.draws[i],pred,hits,gain});
-  }
-  
-  const total=N-warm, staked=total*stake;
-  const hitRate=((total-hitsCnt[0]-hitsCnt[1])/total*100);
-  
-  $('#btKpis').innerHTML=`
-    <div class="kpi">
-      <div class="lbl">Hit rate (≥2/5)</div>
-      <div class="val" style="color:${hitRate>=40?'var(--green)':'var(--orange)'}">
-        ${hitRate.toFixed(1)}%
-      </div>
-      <div class="sub">${total} tirages simulés</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Résultat net</div>
-      <div class="val" style="color:${net>=0?'var(--green)':'var(--red)'}">
-        ${net>=0?'+':''}${net.toLocaleString('fr-FR')} F
-      </div>
-      <div class="sub">
-        Mises ${staked.toLocaleString('fr-FR')} F · ROI ${((net/staked)*100).toFixed(1)}%
-      </div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Drawdown max</div>
-      <div class="val" style="color:var(--red)">
-        ${maxDD.toLocaleString('fr-FR')} F
-      </div>
-      <div class="sub">Série défaites max : ${maxLose}</div>
-    </div>
-    <div class="kpi">
-      <div class="lbl">Série victoires max</div>
-      <div class="val">${maxWin}</div>
-      <div class="sub">Indice de stabilité : ${Math.max(0,Math.round(100-Math.abs(hitRate-50)*2))}/100</div>
-    </div>`;
-  
-  if(chBt)chBt.destroy();
-  chBt=new Chart($('#chartBt'),{
-    type:'line',
-    data:{
-      labels:equity.map((_,i)=>i),
-      datasets:[{
-        data:equity,
-        borderColor:net>=0?'#22c55e':'#ef4444',
-        backgroundColor:'rgba(34,197,94,.12)',
-        fill:true,
-        pointRadius:0,
-        tension:.2
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{
-        y:{grid:{color:'rgba(38,48,74,.5)'}},
-        x:{display:false}
-      }
-    }
-  });
-  
-  DataModule.log('succès',`Backtest [${strat}] : hit rate ${hitRate.toFixed(1)}%, net ${net} FCFA sur ${total} tirages.`);
-  toast('Backtest terminé 🧪');
-});
-
-/* ============================================
-   SYSTÈMES
-   ============================================ */
-const sysSel=new Set(); 
-let lastSysGrids=[];
-
-(function buildSys(){ 
-  const g=$('#sysGrid'); 
-  for(let n=1;n<=90;n++){ 
-    const b=document.createElement('button'); 
-    b.type='button'; 
-    b.className='num-cell'; 
-    b.textContent=n; 
-    b.dataset.n=n; 
-    b.addEventListener('click',()=>{ 
-      if(sysSel.has(n))sysSel.delete(n); 
-      else sysSel.add(n); 
-      syncSys(); 
-    }); 
-    g.appendChild(b); 
-  } 
-})();
-
-function syncSys(){
-  $$('#sysGrid .num-cell').forEach(b=>b.classList.toggle('on',sysSel.has(+b.dataset.n)));
-  const arr=[...sysSel].sort((a,b)=>a-b);
-  $('#sysCount').textContent=arr.length? `→ ${arr.length} pion(s) : ${arr.join(', ')}`:'Aucun pion sélectionné.';
-  const opts='<option value="">—</option>'+arr.map(n=>`<option>${n}</option>`).join('');
-  $('#sysB1').innerHTML=opts; 
-  $('#sysB2').innerHTML=opts;
-}
-
-$('#sysClear').addEventListener('click',()=>{
-  sysSel.clear();
-  syncSys();
-});
-
-$('#sysImport').addEventListener('click',()=>{ 
-  if(!lastPred.length){
-    toast('Générez d\'abord une prédiction (module Clefs).','error');
-    return;
-  } 
-  lastPred[0].forEach(n=>sysSel.add(n)); 
-  syncSys(); 
-  toast('Prédiction importée dans le système.'); 
-});
-
-$('#sysCalc').addEventListener('click',()=>{
-  const arr=[...sysSel].sort((a,b)=>a-b); 
-  const n=arr.length;
-  if(n<5){
-    toast('Sélectionnez au moins 5 pions.','error');
-    return;
-  }
-  
-  const mode=$('#sysMode').value, stake=parseInt($('#sysStake').value,10);
-  let bases=[];
-  
-  if(mode==='reduit'){ 
-    const b1=parseInt($('#sysB1').value,10),b2=parseInt($('#sysB2').value,10);
-    if(!isNaN(b1))bases.push(b1); 
-    if(!isNaN(b2)&&b2!==b1)bases.push(b2);
-    if(!bases.length){
-      toast('Choisissez au moins 1 base fixe.','error');
-      return;
-    } 
-  }
-  
-  const b=bases.length, rest=arr.filter(x=>!bases.includes(x));
-  const k=5-b, combos=C(rest.length,k);
-  lastSysGrids=combs(rest,k).map(c=>[...bases,...c].sort((x,y)=>x-y));
-  const cost=combos*stake;
-  
-  $('#sysOut').innerHTML=`
-    <div class="kpis" style="margin-bottom:12px">
-      <div class="kpi">
-        <div class="lbl">Formule</div>
-        <div class="val" style="font-size:16px">C(${rest.length},${k}) = ${combos.toLocaleString('fr-FR')}</div>
-        <div class="sub">
-          ${mode==='reduit'?`Champ réduit · ${b} base(s) [${bases.join(', ')}]`:'Permutation complète'}
-        </div>
-      </div>
-      <div class="kpi">
-        <div class="lbl">Coût total</div>
-        <div class="val" style="color:var(--orange)">
-          ${cost.toLocaleString('fr-FR')} F
-        </div>
-        <div class="sub">${combos} grilles × ${stake} F</div>
-      </div>
-      <div class="kpi">
-        <div class="lbl">Gain max (5/5)</div>
-        <div class="val" style="color:var(--green)">
-          ${(2000*stake).toLocaleString('fr-FR')} F
-        </div>
-        <div class="sub">×2000 (grille indicative)</div>
-      </div>
-    </div>
-    <p class="muted" style="margin:10px 0 6px">
-      Aperçu des grilles (${Math.min(lastSysGrids.length,40)} / ${combos}) :
-    </p>
-    <div class="ticket" id="sysTicket">
-      ${lastSysGrids.slice(0,40).map((g,i)=>
-        String(i+1).padStart(3,'0')+'  '+g.map(x=>String(x).padStart(2,'0')).join(' - ')
-      ).join('\n')}
-      ${combos>40?'\n…':' '}
-    </div>`;
-  
-  DataModule.log('succès',`Système calculé : ${combos} combinaisons, coût ${cost} FCFA.`);
-  toast(`${combos.toLocaleString('fr-FR')} combinaisons générées 🎟`);
-});
-
-$('#sysCsv').addEventListener('click',()=>{ 
-  if(!lastSysGrids.length){
-    toast('Calculez d\'abord un système.','error');
-    return;
-  } 
-  downloadCSV('ticket_systeme_loto_bonheur.csv',[
-    ['Grille','Numéros'],
-    ...lastSysGrids.map((g,i)=>['G'+(i+1),g.join(' ')])
-  ]); 
-  toast('Ticket exporté ⬇'); 
-});
-
-function renderSys(){ 
-  syncSys(); 
-}
-
-/* ============================================
-   PRÉDICTIONS
-   ============================================ */
-let lastPred=[];
-
-function generateGrids(){
-  const period=$('#prPeriod').value,N=parseInt($('#prCount').value,10);
-  const st=StatsModule.computeStats(period,'win');
-  const maxF=Math.max(...st.freq.slice(1),1),maxE=Math.max(...st.ecart.slice(1),1);
-  
-  const keyNums=new Set(); 
-  if($('#chkKeys').checked)
-    StatsModule.computeKeys().forEach(k=>k.nums.forEach(n=>keyNums.add(n)));
-  
-  const pb=new Map(); 
-  if($('#chkPairs').checked) {
-    const pairs = StatsModule.computePairs ? [] : [];
-  }
-  
-  const markovScores=new Array(91).fill(0);
-  if($('#chkMarkov').checked){
-    const last=StatsModule.lastDraw();
-    const {probs}=StatsModule.markovTransition(period);
-    last.win.forEach(n=>{
-      for(let i=1;i<=90;i++){
-        markovScores[i]+=probs[n][i];
-      }
-    });
-  }
-  
-  const weightedScores=new Array(91).fill(0);
-  if($('#chkWeighted').checked){
-    const weighted=StatsModule.weightedN1(period,0.95);
-    weighted.forEach(w=>{
-      weightedScores[w.num]=w.score;
-    });
-  }
-  
-  const scored=[];
-  for(let n=1;n<=90;n++){ 
-    let s=0;
-    if($('#chkHot').checked)s+=(st.freq[n]/maxF)*3;
-    if($('#chkEcart').checked)s+=(st.ecart[n]/maxE)*2;
-    if($('#chkKeys').checked&&keyNums.has(n))s+=1.6;
-    if($('#chkMarkov').checked)s+=markovScores[n]*2;
-    if($('#chkWeighted').checked)s+=weightedScores[n]*1.5;
-    scored.push({n,s}); 
-  }
-  
-  scored.sort((a,b)=>b.s-a.s||a.n-b.n);
-  const base=scored.slice(0,12).map(x=>x.n);
-  
-  lastPred=[]; 
-  for(let g=0;g<N;g++){
-    const grid=[];
-    for(let i=0;i<5;i++)grid.push(base[(g*2+i)%12]); 
-    lastPred.push(grid.sort((a,b)=>a-b));
-  }
-  
-  return lastPred;
-}
-
-function renderPred(){
-  const d=StatsModule.lastDraw();
-  
-  $('#lastDrawBox').innerHTML=d?`
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
-      <div>
-        <div class="muted" style="font-size:12px;margin-bottom:6px">
-          <b>${fmtDate(d.date)} · ${d.session}</b> — WIN
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${d.win.map(n=>ball(n,'win')).join('')}
-        </div>
-      </div>
-      <div>
-        <div class="muted" style="font-size:12px;margin-bottom:6px">MACHINE</div>
-        ${d.machine.length?`
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${d.machine.map(n=>ball(n,'machine')).join('')}
-          </div>`:'<span class="badge neutral">Sans Machine</span>'}
-      </div>
-      <div class="muted" style="font-size:12px">
-        Σ Win = <b style="color:var(--gold2)">${sum(d.win)}</b>
-      </div>
-    </div>`:'—';
-  
-  $('#keysGrid').innerHTML=StatsModule.computeKeys().map(k=>
-    `<div class="key-card">
-      <h4>🔑 ${k.name}</h4>
-      <div class="fx">${k.fx}</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${k.nums.length?k.nums.map(n=>ball(n,'win sm')).join(''):'<span class="muted">—</span>'}
-      </div>
-    </div>`
-  ).join('');
-  
-  const markov=StatsModule.markovTransition('all');
-  const lastWin=StatsModule.lastDraw().win;
-  const markovScores=new Array(91).fill(0);
-  
-  lastWin.forEach(n=>{
-    for(let i=1;i<=90;i++){
-      markovScores[i]+=markov.probs[n][i];
-    }
-  });
-  
-  const topMarkov=[...Array(90).keys()].map(i=>i+1)
-    .sort((a,b)=>markovScores[b]-markovScores[a])
-    .slice(0,8);
-  
-  $('#markovOut').innerHTML=topMarkov.map(n=>
-    `<div style="display:inline-flex;align-items:center;gap:6px;margin:4px">
-      ${ball(n,'win sm')}
-      <span class="muted" style="font-size:11px">${(markovScores[n]*100).toFixed(1)}%</span>
-    </div>`
-  ).join('');
-  
-  const weighted=StatsModule.weightedN1('all',0.95).slice(0,8);
-  $('#weightedOut').innerHTML=weighted.map(w=>
-    `<div style="display:inline-flex;align-items:center;gap:6px;margin:4px">
-      ${ball(w.num,'win sm')}
-      <span class="muted" style="font-size:11px">${w.score.toFixed(2)}</span>
-    </div>`
-  ).join('');
-}
-
-$('#btnGen').addEventListener('click',()=>{ 
-  const grids=generateGrids(); 
-  $('#predGrids').innerHTML=grids.map((g,i)=>
-    `<div class="pred-grid">
-      <span class="gid">GRILLE ${i+1}</span>
-      ${g.map(n=>ball(n,'win')).join('')}
-      <span class="muted" style="font-size:12px;margin-left:auto">Σ ${sum(g)}</span>
-    </div>`
-  ).join(''); 
-  
-  DataModule.log('succès',`${grids.length} grille(s) générée(s).`); 
-  toast('Grilles générées 🎯'); 
-});
-
-$('#btnPrCsv').addEventListener('click',()=>{ 
-  if(!lastPred.length){
-    toast('Générez d\'abord des grilles.','error');
-    return;
-  } 
-  
-  downloadCSV('grilles_prediction.csv',[
-    ['Grille','Numéros','Somme'],
-    ...lastPred.map((g,i)=>['G'+(i+1),g.join(' '),sum(g)])
-  ]); 
-  
-  toast('Export CSV ⬇'); 
-});
-
-/* ============================================
-   ALERTES & SYNCHRONISATION
-   ============================================ */
-function computeAlerts(){
-  const alerts=[];
-  const st=StatsModule.computeStats('all','win');
-  
-  for(let n=1;n<=90;n++){
-    const gaps=[]; 
-    let prev=-1;
-    DB.draws.forEach((d,i)=>{ 
-      if(d.win.includes(n)){ 
-        if(prev>=0)gaps.push(i-prev); 
-        prev=i; 
-      } 
-    });
-    
-    const histMax=Math.max(0,...gaps);
-    if(st.ecart[n]>=Math.max(histMax,6)&&st.ecart[n]>0) 
-      alerts.push({
-        type:'ecart',
-        msg:`⏰ Le pion ${n} a atteint son écart maximal historique : ${st.ecart[n]} tirages sans sortir.`
-      });
-  }
-  
-  const last=StatsModule.lastDraw();
-  if(last){ 
-    const scores=similarityScores('win',last.win);
-    for(let i=0;i<DB.draws.length-1;i++){ 
-      if(scores[i]>=4) 
-        alerts.push({
-          type:'sim',
-          msg:`🧬 Le dernier tirage partage ${scores[i]} pions avec le tirage du ${fmtDate(DB.draws[i].date)} (${DB.draws[i].session}).`
-        }); 
-    } 
-  }
-  
-  return alerts;
-}
-
-function refreshAlertBadge(){
-  const a=computeAlerts();
-  const b=$('#alertBadge'); 
-  b.textContent=a.length; 
-  b.style.display=a.length?'flex':'none';
-  return a;
-}
-
-function renderAlerts(){
-  const a=refreshAlertBadge();
-  $('#alertCount').textContent=`${a.length} alerte(s) active(s)`;
-  
-  $('#alertList').innerHTML=a.map(x=>
-    `<div class="alert-item">
-      <div class="ic" style="background:${x.type==='ecart'?'rgba(56,189,248,.15)':'rgba(246,178,27,.15)'}">
-        ${x.type==='ecart'?'⏰':'🧬'}
-      </div>
-      <div style="font-size:13px;line-height:1.5">${x.msg}</div>
-    </div>`
-  ).join('')||'<p class="muted">Aucune alerte.</p>';
-  
-  $('#syncInfo').textContent=`Base locale : ${DB.draws.length} tirages · dernier : ${fmtDate(StatsModule.lastDraw().date)} (${StatsModule.lastDraw().session}).`;
-}
-
-$('#pasteToggle').addEventListener('click',()=>{ 
-  const p=$('#pastePanel'); 
-  p.style.display=p.style.display==='none'?'block':'none'; 
-});
-
-$('#parseBtn').addEventListener('click',()=>{
-  toast('Parsing du texte collé...', 'info');
-});
-
-$('#syncBtn').addEventListener('click',async()=>{
-  toast('Connexion au flux officiel lotobonheur.ci…','info');
-  
-  try{
-    const r=await fetch('https://lotobonheur.ci/resultats',{mode:'cors'});
-    if(!r.ok)throw 0;
-    
-    toast('Synchronisation réussie ✅');
-  }catch(e){
-    toast('Flux direct bloqué par le navigateur (CORS). Utilisez l\'import de fichiers.','error');
-    $('#pastePanel').style.display='block';
-  }
-});
-
-/* ============================================
-   LOGS & RESET
-   ============================================ */
-function renderLogs(){ 
-  const LBL={succès:'ok',erreur:'err',info:'warn',export:'ok'}; 
-  
-  $('#logsBody').innerHTML=DB.logs.map(l=>
-    `<tr>
-      <td class="muted">${l.ts}</td>
-      <td><span class="badge ${LBL[l.type]||'warn'}">${l.type}</span></td>
-      <td>${l.msg}</td>
-    </tr>`
-  ).join('')||'<tr><td colspan="3" class="muted">Vide.</td></tr>'; 
-}
-
-$('#btnClearLogs').addEventListener('click',()=>{
-  DB.logs=[];
-  DataModule.saveLogs();
-  renderLogs();
-  toast('Journal vidé.','info');
-});
-
-$('#btnResetData').addEventListener('click',()=>{ 
-  if(!confirm('Restaurer les données officielles ?'))return; 
-  
-  const p=DataModule.parseReal(); 
-  DB.draws=p.draws; 
-  DataModule.saveDraws(); 
-  DataModule.updateStats();
-  invalidate(); 
-  refreshAlertBadge(); 
-  
-  DataModule.log('info','Données officielles restaurées.'); 
-  toast('Données restaurées ⟲','info'); 
-  
-  go('dash'); 
-});
-
-/* ============================================
-   PWA
-   ============================================ */
-const PWAModule = {
-  init() {
-    if('serviceWorker' in navigator) {
-      const swCode = `
-        const CACHE_NAME = 'loto-bonheur-v2';
-        
-        self.addEventListener('install', event => {
-          self.skipWaiting();
-        });
-        
-        self.addEventListener('activate', event => {
-          event.waitUntil(clients.claim());
-        });
-        
-        self.addEventListener('fetch', event => {
-          event.respondWith(fetch(event.request));
-        });
-      `;
-      
-      const blob = new Blob([swCode], {type: 'application/javascript'});
-      const swUrl = URL.createObjectURL(blob);
-      
-      navigator.serviceWorker.register(swUrl).then(reg => {
-        console.log('SW enregistré');
-      }).catch(err => {
-        console.log('SW error:', err);
-      });
-    }
-    
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      $('#pwaInstall').style.display = 'block';
-    });
-    
-    $('#pwaInstall').addEventListener('click', async () => {
-      if(deferredPrompt) {
-        deferredPrompt.prompt();
-        const {outcome} = await deferredPrompt.userChoice;
-        if(outcome === 'accepted') {
-          $('#pwaInstall').style.display = 'none';
-        }
-        deferredPrompt = null;
-      }
-    });
-  }
-};
-
-/* ============================================
-   INITIALISATION
-   ============================================ */
-$('#stHot').value=DB.cfg.hot; 
-$('#stCold').value=DB.cfg.cold;
-
-DataModule.init();
-
-const bootAlerts=refreshAlertBadge();
-if(bootAlerts.length) 
-  setTimeout(()=>
-    toast(`${bootAlerts.length} alerte(s) active(s) — voir module Alertes & Sync 🔔`,'info')
-  ,800);
-
-renderDash();
-PWAModule.init();
-</script>
+<div id="toasts" aria-live="polite" aria-atomic="true"></div>
+<button class="pwa-install" id="pwaInstall" aria-label="Installer l'application">📱 Installer l'app</button>
+<script type="module" src="/src/js/main.js"></script>
 </body>
 </html>
-
