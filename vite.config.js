@@ -5,6 +5,9 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: false,
+    // Autorise les hôtes de prévisualisation (sandbox, tunnels, etc.)
+    allowedHosts: true,
+    cors: true,
     hmr: {
       clientPort: 443,
     },
