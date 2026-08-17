@@ -1,0 +1,25 @@
+{
+  "name": "ivoireloto-analytics-pro",
+  "version": "2.1.0",
+  "description": "Application d'analyse statistique du Loto Bonheur LONACI - 14 ans de données historiques",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "lint": "eslint src --ext .js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.7",
+    "idb": "^8.0.2"
+  },
+  "devDependencies": {
+    "vite": "^6.0.5",
+    "eslint": "^9.0.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": ["loto", "lonaci", "ivoire", "statistiques", "loto-bonheur"],
+  "author": "djirierou",
+  "license": "MIT"
+}
