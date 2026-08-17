@@ -1,6 +1,6 @@
 {
   "name": "ivoireloto-analytics-pro",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Application d'analyse statistique du Loto Bonheur LONACI - 14 ans de données historiques",
   "type": "module",
   "scripts": {

@@ -40,6 +40,24 @@ function lsSet(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('LS set failed', e); }
 }
 
+/**
+ * Garantit la forme canonique d'un tirage.
+ * /!\ Les tirages venant d'IndexedDB (anciennes versions) ou d'un JSON externe
+ * peuvent ne pas avoir de champ `machine` -> TypeError dans tous les rendus
+ * (`d.machine.map`, `d.machine.length`...). On normalise une seule fois ici.
+ */
+export function normalizeDraw(d){
+  if(!d || typeof d!=='object') return null;
+  return {
+    ...d,
+    win: Array.isArray(d.win) ? d.win : [],
+    machine: Array.isArray(d.machine) ? d.machine : []
+  };
+}
+export function normalizeDraws(list){
+  return (Array.isArray(list)?list:[]).map(normalizeDraw).filter(Boolean);
+}
+
 export const DataLayer = {
   useIDB: true,
   cache: { draws: [], logs: [], cfg: {hot:15,cold:15} },
@@ -52,7 +70,7 @@ export const DataLayer = {
       const logs = lsGet(CONFIG.LS_FALLBACK.logs, []);
       const cfg = lsGet(CONFIG.LS_FALLBACK.cfg, {hot:15,cold:15});
       if(draws && draws.length){
-        this.cache.draws = draws;
+        this.cache.draws = normalizeDraws(draws);
         this.cache.logs = logs;
         this.cache.cfg = cfg;
       }
@@ -69,7 +87,7 @@ export const DataLayer = {
       const cfgRec = await db.get(CONFIG.STORE_CFG, 'main');
       if(cfgRec) cfg = cfgRec.value;
     }catch{}
-    this.cache.draws = draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
+    this.cache.draws = normalizeDraws(draws).sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
     this.cache.logs = logs.map(l=> ({ts: new Date(l.ts).toLocaleString('fr-FR'), type:l.type, msg:l.msg})).slice(0,250);
     this.cache.cfg = cfg;
 
@@ -83,7 +101,8 @@ export const DataLayer = {
     return db;
   },
 
-  async bulkPutDraws(draws){
+  async bulkPutDraws(rawDraws){
+    const draws = normalizeDraws(rawDraws);
     const db = await getDB();
     if(!db || !this.useIDB){
       lsSet(CONFIG.LS_FALLBACK.draws, draws);

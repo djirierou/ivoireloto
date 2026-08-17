@@ -10,6 +10,20 @@ function memo(k, fn){
 }
 export function invalidateCache(){ cache.clear(); }
 
+/**
+ * Signature d'un jeu de tirages pour la clé de cache.
+ * /!\ Avant: la clé n'utilisait que draws.length — deux jeux différents de même
+ * taille renvoyaient donc les stats du premier (résultats faux après édition/import).
+ * On ajoute date+session+contenu des bornes pour discriminer sans coût O(N).
+ */
+function sig(draws){
+  const n=draws.length;
+  if(!n) return '0';
+  const f=draws[0], l=draws[n-1], m=draws[n>>1];
+  const t=d=> `${d.date}#${d.session}#${d.win?.join('.')||''}#${d.machine?.join('.')||''}`;
+  return `${n}|${t(f)}|${t(m)}|${t(l)}`;
+}
+
 export const StatsEngine = {
   drawsInPeriod(draws, p, TODAY=new Date()){
     if(p==='all') return draws;
@@ -21,14 +35,17 @@ export const StatsEngine = {
   },
 
   blocksOf(d,s){
-    if(s==='win') return [d.win];
-    if(s==='machine') return [d.machine];
-    if(s==='both') return [[...d.win,...d.machine]];
-    return [d.win,d.machine];
+    // /!\ Avant: d.machine était supposé toujours défini -> TypeError sur les
+    // tirages importés sans champ machine (JSON externe, saisie « sans machine »).
+    const w=d.win||[], m=d.machine||[];
+    if(s==='win') return [w];
+    if(s==='machine') return [m];
+    if(s==='both') return [[...w,...m]];
+    return [w,m];
   },
 
   computeStats(draws, period, scope, cfgHot=15, cfgCold=15, TODAY=new Date()){
-    const key=`st:${period}:${scope}:${cfgHot}:${cfgCold}:${draws.length}`;
+    const key=`st:${period}:${scope}:${cfgHot}:${cfgCold}:${sig(draws)}`;
     return memo(key, ()=>{
       const filtered = this.drawsInPeriod(draws, period, TODAY);
       const freq=new Array(91).fill(0), last=new Array(91).fill(-1);
@@ -60,8 +77,9 @@ export const StatsEngine = {
   computeKeys(draws){
     const d=this.lastDraw(draws);
     if(!d) return [];
-    const W=[...d.win].sort((a,b)=>a-b);
-    const M=d.machine.length?[...d.machine].sort((a,b)=>a-b):null;
+    const W=[...(d.win||[])].sort((a,b)=>a-b);
+    if(W.length<5) return [];
+    const M=(d.machine&&d.machine.length)?[...d.machine].sort((a,b)=>a-b):null;
     const S=sum(W), SM=M?sum(M):0;
     const keys=[
       {name:'Somme de contrôle Win',fx:`${W.join(' + ')} = ${S} → mod 90`,nums:[map90(S)]},
@@ -78,7 +96,7 @@ export const StatsEngine = {
   },
 
   markovTransition(draws, period='all', TODAY=new Date()){
-    const key=`markov:${period}:${draws.length}`;
+    const key=`markov:${period}:${sig(draws)}`;
     return memo(key, ()=>{
       const filtered=this.drawsInPeriod(draws, period, TODAY);
       const trans=new Array(91).fill(null).map(()=>new Array(91).fill(0));
@@ -95,7 +113,7 @@ export const StatsEngine = {
   },
 
   weightedN1(draws, period='all', decay=0.95, TODAY=new Date()){
-    const key=`weighted:${period}:${decay}:${draws.length}`;
+    const key=`weighted:${period}:${decay}:${sig(draws)}`;
     return memo(key, ()=>{
       const filtered=this.drawsInPeriod(draws, period, TODAY);
       const scores=new Array(91).fill(0);
@@ -110,7 +128,7 @@ export const StatsEngine = {
 
   // Co-occurrences with triplet support
   computeCooc(draws, period, mode, TODAY=new Date()){
-    const key=`cooc:${period}:${mode}:${draws.length}`;
+    const key=`cooc:${period}:${mode}:${sig(draws)}`;
     return memo(key, ()=>{
       const filtered=this.drawsInPeriod(draws, period, TODAY);
       const pairMap=new Map();
@@ -128,11 +146,11 @@ export const StatsEngine = {
       filtered.forEach(d=>{
         const blocks=[];
         if(mode==='win' || mode==='machine'){
-          const b=mode==='win'?d.win:d.machine;
+          const b=(mode==='win'?d.win:d.machine)||[];
           if(b.length===5) blocks.push(b);
-        } else if(d.machine.length){
+        } else if(d.machine && d.machine.length){
           // cross: we still compute win pairs and machine pairs plus cross pairs
-          if(d.win.length===5) blocks.push(d.win);
+          if(d.win && d.win.length===5) blocks.push(d.win);
           if(d.machine.length===5) blocks.push(d.machine);
           d.win.forEach(w=> d.machine.forEach(m=> {
             const a=Math.min(w,m), b=Math.max(w,m);
@@ -184,14 +202,20 @@ export const StatsEngine = {
       draws[i].win.forEach(n=>{ if(lastSeen[n]===-1) lastSeen[n]=idx; });
     }
 
-    // Precompute markov if needed globally (still O(N) each time if used per idx, but we can approximate incremental? We'll compute global probs for simplicity per backtest, then adjust)
-    let globalProbs=null;
+    // Markov INCRÉMENTAL — anti look-ahead.
+    // /!\ Avant: on utilisait markovTransition(draws,'all') calculé sur TOUT l'historique,
+    // donc la prédiction du tirage i connaissait déjà les tirages i..N (fuite du futur).
+    // Résultat: ~87% de hit sur des données purement aléatoires. Corrigé ici en ne
+    // comptant que les transitions strictement antérieures à i.
+    let trans=null, transCounts=null;
     if(strat==='markov'){
-      globalProbs=this.markovTransition(draws,'all').probs;
-    }
-    let weightedCache=null;
-    if(strat==='weighted'){
-      weightedCache=this.weightedN1(draws,'all',0.95);
+      trans=new Array(91).fill(null).map(()=>new Array(91).fill(0));
+      transCounts=new Array(91).fill(0);
+      // amorçage sur la période de warmup uniquement
+      for(let i=1;i<warm;i++){
+        const prev=draws[i-1].win, curr=draws[i].win;
+        prev.forEach(p=>{ transCounts[p]++; curr.forEach(c=>{ trans[p][c]++; }); });
+      }
     }
 
     const hitsCnt=[0,0,0,0,0,0];
@@ -216,11 +240,14 @@ export const StatsEngine = {
       } else if(strat==='markov'){
         const lastWin=draws[i-1].win;
         const scores=new Array(91).fill(0);
-        lastWin.forEach(n=>{ for(let j=1;j<=90;j++) scores[j]+=globalProbs[n][j]; });
+        // probabilités reconstruites à partir des seules transitions passées (< i)
+        lastWin.forEach(n=>{
+          const cn=transCounts[n];
+          if(cn>0){ for(let j=1;j<=90;j++) scores[j]+=trans[n][j]/cn; }
+        });
         pred=[...Array(90).keys()].map(x=>x+1).sort((a,b)=>scores[b]-scores[a]||freq[b]-freq[a]).slice(0,5);
       } else if(strat==='weighted'){
-        // use top from weighted but weighted is based on all history; for incremental we recompute quickly decay weighted up to i
-        // Use precomputed but truncated? For speed, use freq as proxy plus decay reweight of last 30
+        // fenêtre glissante décroissante sur les 60 tirages précédant i (aucune donnée future)
         const scores=new Array(91).fill(0);
         for(let k=Math.max(0,i-60);k<i;k++){
           const age=i-1-k;
@@ -261,6 +288,11 @@ export const StatsEngine = {
       // update lastSeen: shift
       for(let n=1;n<=90;n++){ if(lastSeen[n]!==-1) lastSeen[n]++; }
       draws[i].win.forEach(n=> lastSeen[n]=0);
+      // Markov: on n'intègre la transition (i-1 -> i) qu'APRÈS avoir été évalué
+      if(trans){
+        const prev=draws[i-1].win, curr=draws[i].win;
+        prev.forEach(p=>{ transCounts[p]++; curr.forEach(c=>{ trans[p][c]++; }); });
+      }
     }
 
     const total=N-warm, staked=total*stake;

@@ -45,6 +45,36 @@ export async function syncOfficial(){
 // Serverless proxy example for Vercel/Netlify will be in /api/lonaci.js
 // This client also supports direct fetch with user-provided HTML via paste
 
+/**
+ * Probabilité exacte d'obtenir au moins 2 bons numéros sur une grille de 5
+ * dans un tirage 5/90 (loi hypergéométrique) :
+ *   P(k) = C(5,k)*C(85,5-k) / C(90,5)
+ *   P(>=2) = 1 - P(0) - P(1) = 1 - 0.746350 - 0.230355 = 0.023296
+ */
+export const RANDOM_HIT2_PCT = 2.3296;
+
+/** P(exactement k bons numéros) pour une grille de 5 dans un tirage 5/90. */
+export const HYPERGEO_5_90 = {
+  0: 0.7463500,
+  1: 0.2303550,
+  2: 0.0224740,
+  3: 0.0008120,
+  4: 0.0000103,
+  5: 0.0000000228
+};
+
+/**
+ * ROI théorique (%) d'une grille jouée au hasard, selon la grille de gains.
+ * /!\ Avant: l'écran Systèmes affichait `-${(100-(2/2000*100)).toFixed(0)}%`
+ * soit toujours « -100% », une formule sans rapport avec les multiplicateurs.
+ * @param {{2:number,3:number,4:number,5:number}} mult multiplicateurs de la mise
+ */
+export function theoreticalROI(mult){
+  let ev=0;
+  for(const k of [2,3,4,5]) ev += (HYPERGEO_5_90[k]||0) * (Number(mult?.[k])||0);
+  return (ev - 1) * 100;
+}
+
 export function generateTransparencyReport(backtestResult, randomBaseline=null){
   // backtestResult: {hitRate, net, staked, maxDD, total, equity, etc}
   if(!backtestResult) return null;
@@ -58,11 +88,10 @@ export function generateTransparencyReport(backtestResult, randomBaseline=null){
   else if(roi<20) verdict='Légèrement positive';
   else verdict='Rentable sur cet historique';
 
-  // Compute random baseline (theoretical)
-  // For Loto 5/90, prob at least 2/5: C(5,2)*C(85,3)/C(90,5) ≈ 0.230? Actually compute approx
-  // We'll compute theoretical hit rate for random: using hypergeometric
-  const theoreticalHit2 = 0.2306; // approximate from combinatorics, for transparency
-  const excessVsRandom = hitRate - (theoreticalHit2*100);
+  // Baseline hasard (loi hypergéométrique exacte, tirage 5/90)
+  // /!\ Avant: 0.2306 était utilisé comme P(>=2/5). C'est faux: 23.04% est P(exactement 1/5).
+  // La vraie P(>=2/5) = 1 - P(0) - P(1) = 2.3296%.
+  const excessVsRandom = hitRate - RANDOM_HIT2_PCT;
 
   return {
     total,

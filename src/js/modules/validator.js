@@ -19,6 +19,10 @@ export function validateDate(date){
   if(!DATE_REGEX.test(date)) return false;
   const d = new Date(date+'T12:00:00');
   if(isNaN(d.getTime())) return false;
+  // /!\ Avant: '2020-02-31' passait car Date() le décale silencieusement au 2 mars.
+  // On vérifie que la date reconstruite correspond bien aux composants saisis.
+  const [yy,mm,dd] = date.split('-').map(Number);
+  if(d.getFullYear()!==yy || d.getMonth()+1!==mm || d.getDate()!==dd) return false;
   // future check
   const today = new Date();
   today.setHours(23,59,59,999);
@@ -29,10 +33,12 @@ export function validateDate(date){
   return true;
 }
 
-export function validateNumbers(arr, label='win'){
+export function validateNumbers(arr, label='win', allowEmpty=true){
   if(!Array.isArray(arr)) return {ok:false, reason:`${label} doit être tableau`};
   if(arr.length!==5 && arr.length!==0) return {ok:false, reason:`${label} doit avoir 5 numéros ou vide`};
-  if(arr.length===0) return {ok:true};
+  // /!\ Avant: un tirage avec win:[] était accepté (tirage fantôme sans numéros).
+  // Seul le bloc Machine peut être vide.
+  if(arr.length===0) return allowEmpty ? {ok:true} : {ok:false, reason:`${label} est obligatoire (5 numéros)`};
   for(const n of arr){
     if(!Number.isInteger(n) || n<1 || n>90) return {ok:false, reason:`${label} numéro ${n} hors borne 1-90`};
   }
@@ -47,10 +53,10 @@ export function validateDraw(obj){
   if(!validateDate(obj.date)) errors.push('Date invalide ou future (format YYYY-MM-DD, >=2012-07-17)');
   const sess = sanitizeSession(obj.session);
   if(!sess) errors.push('Session invalide (caractères autorisés alphanum + -_:/() )');
-  const vWin = validateNumbers(obj.win, 'Win');
+  const vWin = validateNumbers(obj.win, 'Win', false);
   if(!vWin.ok) errors.push(vWin.reason);
   const mach = obj.machine || [];
-  const vMach = validateNumbers(mach, 'Machine');
+  const vMach = validateNumbers(mach, 'Machine', true);
   if(!vMach.ok) errors.push(vMach.reason);
   // Additional: win & machine should not share numbers? LONACI can? Allow but warn if overlap
   // No overlap check required per LONACI rules they are independent

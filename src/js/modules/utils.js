@@ -59,7 +59,7 @@ export function debounce(fn,wait=200){
   return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args),wait); };
 }
 
-export function parseCSVLine(line){
+export function parseCSVLine(line, delim=','){
   // Handle quoted fields
   const res=[];
   let cur='', inQuote=false;
@@ -68,7 +68,7 @@ export function parseCSVLine(line){
     if(c==='"'){
       if(inQuote && line[i+1]==='"'){ cur+='"'; i++; }
       else inQuote=!inQuote;
-    } else if(c===',' && !inQuote){
+    } else if(c===delim && !inQuote){
       res.push(cur.trim()); cur='';
     } else cur+=c;
   }
@@ -76,22 +76,60 @@ export function parseCSVLine(line){
   return res;
 }
 
+/**
+ * Détecte le séparateur réel du CSV (`,` ou `;`).
+ * /!\ Avant: le parser était câblé sur la virgule et le rattrapage `;` ne
+ * se déclenchait jamais (il testait values.length===1 après un push de 1 champ
+ * puis exigeait >=7 colonnes) — or l'app EXPORTE en `;`: un ré-import de son
+ * propre export renvoyait 0 tirage.
+ */
+/**
+ * Normalise une date CSV vers YYYY-MM-DD.
+ * Accepte YYYY-MM-DD, DD/MM/YYYY et DD-MM-YYYY (formats produits par Excel FR).
+ */
+export function normalizeDate(v){
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){
+    const [,d,mo,y]=m;
+    return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  return s;
+}
+
+export function detectDelimiter(headerLine){
+  const c=(headerLine.match(/,/g)||[]).length;
+  const s=(headerLine.match(/;/g)||[]).length;
+  return s>c ? ';' : ',';
+}
+
 export function parseCSV(text){
-  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  // retire un éventuel BOM UTF-8 (Excel) qui casserait la détection d'en-tête
+  const lines=text.replace(/^\ufeff/,'').split(/\r?\n/).filter(l=>l.trim());
   if(!lines.length) return [];
-  const header=parseCSVLine(lines[0]).map(h=>h.toLowerCase());
-  const hasHeader=header[0].includes('date') || header[0]==='date';
+  const delim=detectDelimiter(lines[0]);
+  const header=parseCSVLine(lines[0], delim).map(h=>h.toLowerCase());
+  const hasHeader=header[0].includes('date');
   const start=hasHeader?1:0;
   const draws=[];
   for(let i=start;i<lines.length;i++){
-    const values=parseCSVLine(lines[i]);
-    if(values.length<7) continue;
-    // support both comma and semicolon?
-    if(values.length===1 && values[0].includes(';')){
-      const v2=values[0].split(';').map(v=>v.trim().replace(/^"|"$/g,''));
-      if(v2.length>=7) values.splice(0,1,...v2);
+    const values=parseCSVLine(lines[i], delim);
+
+    // Format « groupé » produit par l'export historique de l'app :
+    // Date;Session;"1 2 3 4 5";"6 7 8 9 10";Somme
+    if(values.length>=3 && /\d+[\s\-]+\d+/.test(values[2])){
+      const g=s=>String(s||'').split(/[\s\-]+/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n)&&n>=1&&n<=90);
+      const win=g(values[2]);
+      const machine=g(values[3]);
+      if(win.length===5 && new Set(win).size===5){
+        draws.push({date:normalizeDate(values[0]), session:values[1], win, machine:machine.length===5?machine:[]});
+      }
+      continue;
     }
-    const date=values[0];
+
+    if(values.length<7) continue;
+    const date=normalizeDate(values[0]);
     const session=values[1];
     const win=[2,3,4,5,6].map(idx=>parseInt(values[idx],10)).filter(n=>!isNaN(n));
     let machine=[];

@@ -4,7 +4,7 @@ import { DataLayer } from './modules/db.js';
 import { StatsEngine, invalidateCache } from './modules/stats.js';
 import { createTopChart, createClassChart, createLineChart, createHorizBar, createEquityChart } from './modules/charts.js';
 import { validateDraw } from './modules/validator.js';
-import { syncOfficial, generateTransparencyReport } from './modules/sync.js';
+import { syncOfficial, generateTransparencyReport, RANDOM_HIT2_PCT, theoreticalROI } from './modules/sync.js';
 
 const TODAY = new Date();
 let charts = { top:null, cls:null, months:null, stats:null, bt:null };
@@ -97,14 +97,36 @@ function computeAlerts(){
   const alerts=[];
   if(!draws.length) return alerts;
   const st=StatsEngine.computeStats(draws,'all','win', DataLayer.cache.cfg.hot, DataLayer.cache.cfg.cold, TODAY);
+
+  // Écarts historiques calculés en UNE passe (avant: 90 balayages de l'historique).
+  const gapsByNum=new Map(); const prevSeen=new Array(91).fill(-1); const occurrences=new Array(91).fill(0);
+  draws.forEach((d,i)=>{
+    for(const n of d.win){
+      occurrences[n]++;
+      if(prevSeen[n]>=0){
+        const g=gapsByNum.get(n)||[]; g.push(i-prevSeen[n]); gapsByNum.set(n,g);
+      }
+      prevSeen[n]=i;
+    }
+  });
+
+  // /!\ Avant: tout numéro jamais sorti (histMax=0) déclenchait une alerte
+  // « écart maximal historique » -> 59 alertes sur 90 numéros, signal noyé.
+  // On exige maintenant un historique significatif (>=3 sorties) et un
+  // dépassement STRICT du record, puis on trie par sévérité.
+  const ecartAlerts=[];
   for(let n=1;n<=90;n++){
-    const gaps=[]; let prev=-1;
-    draws.forEach((d,i)=>{ if(d.win.includes(n)){ if(prev>=0) gaps.push(i-prev); prev=i; } });
-    const histMax=Math.max(0,...gaps);
-    if(st.ecart[n]>=Math.max(histMax,6) && st.ecart[n]>0){
-      alerts.push({type:'ecart', msg:`⏰ Le pion ${n} a atteint son écart maximal historique : ${st.ecart[n]} tirages sans sortir.`});
+    if(occurrences[n]<3) continue;
+    const gaps=gapsByNum.get(n)||[];
+    if(!gaps.length) continue;
+    const histMax=Math.max(...gaps);
+    if(st.ecart[n]>histMax && st.ecart[n]>=6){
+      ecartAlerts.push({type:'ecart', severity:st.ecart[n]-histMax,
+        msg:`⏰ Le pion ${n} dépasse son écart maximal historique (${histMax}) : ${st.ecart[n]} tirages sans sortir.`});
     }
   }
+  ecartAlerts.sort((a,b)=>b.severity-a.severity);
+  alerts.push(...ecartAlerts);
   const last=StatsEngine.lastDraw(draws);
   if(last){
     const scores=draws.map(d=> d.win.filter(nn=> last.win.includes(nn)).length);
@@ -154,7 +176,7 @@ function renderDash(){
   if(transCard){
     transCard.innerHTML = `
       <h4 style="margin-bottom:8px">🔎 Transparence</h4>
-      <p class="muted" style="font-size:12px">Le backtesting ci-dessous montre l'espérance réelle. Aucun système ne garantit un gain futur. Probabilité théorique ≥2/5 ≈ 23%. Le tableau ci-dessus est descriptif.</p>
+      <p class="muted" style="font-size:12px">Le backtesting ci-dessous montre l'espérance réelle. Aucun système ne garantit un gain futur. Probabilité théorique ≥2/5 ≈ 2,33%. Le tableau ci-dessus est descriptif.</p>
     `;
   }
 }
@@ -286,23 +308,32 @@ async function runSimilarity(){
 
   const filters = (useSum||usePar||useTens||useGap) ? {sum:useSum, parity:usePar, tens:useTens, gap:useGap} : null;
 
+  // Le tirage de référence ne doit pas apparaître dans ses propres résultats
+  const selfIndex = $('#simRef')?.value==='last' ? draws.length-1 : -1;
+
   try{
     const w=getWorker();
-    const promise=new Promise((resolve)=>{
+    // /!\ Avant: la promesse n'avait ni onerror ni timeout — si le Worker plantait,
+    // elle restait pending et l'UI restait bloquée sur les squelettes de chargement.
+    const promise=new Promise((resolve,reject)=>{
+      const cleanup=()=>{ w.removeEventListener('message',handler); w.removeEventListener('error',onErr); clearTimeout(timer); };
       const handler=(e)=>{
-        if(e.data.type==='similarityResult'){ w.removeEventListener('message',handler); resolve(e.data.payload); }
+        if(e.data && e.data.type==='similarityResult'){ cleanup(); resolve(e.data.payload); }
       };
+      const onErr=(e)=>{ cleanup(); reject(new Error(e.message||'Worker error')); };
+      const timer=setTimeout(()=>{ cleanup(); reject(new Error('Timeout worker (15s)')); }, 15000);
       w.addEventListener('message',handler);
+      w.addEventListener('error',onErr);
     });
     w.postMessage({type:'similarity', payload:{draws, scope, queryNums:q, min, filters}});
     const res=await promise;
-    processSimilarityResults(res, q, scope, limit);
+    processSimilarityResults(res.filter(r=>r.i!==selfIndex), q, scope, limit);
   }catch(err){
     console.warn('Worker failed, fallback',err);
     const qset=new Set(q);
     const res=[];
     draws.forEach((d,i)=>{
-      if($('#simRef')?.value==='last' && i===draws.length-1) return;
+      if(i===selfIndex) return;
       const arr=scope==='both'? [...new Set([...d.win,...(d.machine||[])])] : (scope==='win'?d.win:d.machine||d.win);
       const sc=arr.filter(x=>qset.has(x)).length;
       if(min && sc<min) return;
@@ -348,7 +379,7 @@ function runBacktest(){
     lastBacktestReport = transparency;
 
     $('#btKpis').innerHTML=`
-      <div class="kpi"><div class="lbl">Hit rate (≥2/5)</div><div class="val" style="color:${result.hitRate>=40?'var(--green)':'var(--orange)'}">${result.hitRate.toFixed(1)}% <span style="font-size:11px;color:var(--muted)">vs hasard ~23%</span></div><div class="sub">${result.total} tirages · écart vs hasard ${(transparency.excessVsRandom).toFixed(1)}%</div></div>
+      <div class="kpi"><div class="lbl">Hit rate (≥2/5)</div><div class="val" style="color:${result.hitRate>=RANDOM_HIT2_PCT?'var(--green)':'var(--orange)'}">${result.hitRate.toFixed(1)}% <span style="font-size:11px;color:var(--muted)">vs hasard ${RANDOM_HIT2_PCT}%</span></div><div class="sub">${result.total} tirages · écart vs hasard ${(transparency.excessVsRandom).toFixed(1)}%</div></div>
       <div class="kpi"><div class="lbl">Espérance nette / jeu</div><div class="val" style="color:${transparency.expectedPerGame>=0?'var(--green)':'var(--red)'}">${transparency.expectedPerGame>=0?'+':''}${transparency.expectedPerGame.toFixed(1)} F</div><div class="sub">Net ${transparency.net.toLocaleString('fr-FR')} F · ROI ${transparency.roi.toFixed(1)}%</div></div>
       <div class="kpi"><div class="lbl">Verdict transparence</div><div class="val" style="font-size:13px">${escapeHTML(transparency.verdict)}</div><div class="sub"><span class="badge ${transparency.isProfitable?'ok':'err'}">${transparency.isProfitable?'Rentable historique':'Perdante'}</span></div></div>
       <div class="kpi"><div class="lbl">Drawdown max</div><div class="val" style="color:var(--red)">${result.maxDD.toLocaleString('fr-FR')} F</div><div class="sub">Défaite max ${result.maxLose} · Victoire max ${result.maxWin}</div></div>
@@ -370,12 +401,12 @@ function runBacktest(){
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px">
         <div class="key-card"><h4>Rendement net</h4><div style="font-size:18px;font-weight:800;color:${transparency.net>=0?'var(--green)':'var(--red)'}">${transparency.net.toLocaleString('fr-FR')} F</div><div class="muted" style="font-size:12px">Sur ${transparency.total} tirages, mises ${transparency.staked.toLocaleString()} F</div></div>
         <div class="key-card"><h4>Espérance / mise</h4><div style="font-size:18px;font-weight:800">${transparency.roi.toFixed(2)}% ROI</div><div class="muted" style="font-size:12px">Gain moyen par jeu ${transparency.expectedPerGame.toFixed(2)} F</div></div>
-        <div class="key-card"><h4>Comparaison hasard</h4><div style="font-size:18px;font-weight:800">${transparency.excessVsRandom>0?'+':''}${transparency.excessVsRandom.toFixed(1)}% hit rate</div><div class="muted" style="font-size:12px">Vs théorique hasard 23% pour ≥2/5</div></div>
+        <div class="key-card"><h4>Comparaison hasard</h4><div style="font-size:18px;font-weight:800">${transparency.excessVsRandom>0?'+':''}${transparency.excessVsRandom.toFixed(1)}% hit rate</div><div class="muted" style="font-size:12px">Vs théorique hasard ${RANDOM_HIT2_PCT}% pour ≥2/5</div></div>
       </div>
       <p class="muted" style="margin-top:12px;font-size:12px;border-top:1px solid var(--line);padding-top:10px">⚠️ ${escapeHTML(transparency.disclaimer)} Backtest sur historique uniquement.</p>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
         <span class="badge ${transparency.roi>0?'ok':'err'}">ROI ${transparency.roi.toFixed(1)}%</span>
-        <span class="badge ${transparency.hitRate>23?'ok':'neutral'}">Hit ${transparency.hitRate.toFixed(1)}% vs 23% hasard</span>
+        <span class="badge ${transparency.hitRate>RANDOM_HIT2_PCT?'ok':'neutral'}">Hit ${transparency.hitRate.toFixed(1)}% vs ${RANDOM_HIT2_PCT}% hasard</span>
         <span class="badge warn">Drawdown ${transparency.maxDD.toLocaleString()} F</span>
       </div>
     `;
@@ -415,19 +446,34 @@ function generateGrids(){
     const weighted=StatsEngine.weightedN1(draws, period,0.95,TODAY);
     weighted.forEach(w=>{ weightedScores[w.num]=w.score; });
   }
+  // Bonus co-occurrence précalculé.
+  // /!\ Avant: computeCooc() + un filter sur TOUTES les paires étaient appelés
+  // à l'intérieur de la boucle des 90 numéros (90 passes inutiles).
+  const pairBonus=new Array(91).fill(0);
+  if($('#chkPairs')?.checked){
+    const {pairs}=StatsEngine.computeCooc(draws, period,'win',TODAY);
+    const perNum=new Map();
+    for(const p of pairs){ // pairs déjà triées par count décroissant
+      const la=perNum.get(p.a)||[]; if(la.length<3){ la.push(p.c); perNum.set(p.a,la); }
+      const lb=perNum.get(p.b)||[]; if(lb.length<3){ lb.push(p.c); perNum.set(p.b,lb); }
+    }
+    perNum.forEach((list,n)=>{ pairBonus[n]=list.reduce((a,c)=>a+c*0.01,0); });
+  }
+
+  // Lecture des cases à cocher une seule fois hors boucle
+  const useHot=!!$('#chkHot')?.checked, useEcart=!!$('#chkEcart')?.checked,
+        useKeys=!!$('#chkKeys')?.checked, useMarkov=!!$('#chkMarkov')?.checked,
+        useWeighted=!!$('#chkWeighted')?.checked, usePairs=!!$('#chkPairs')?.checked;
+
   const scored=[];
   for(let n=1;n<=90;n++){
     let s=0;
-    if($('#chkHot')?.checked) s+=(st.freq[n]/maxF)*3;
-    if($('#chkEcart')?.checked) s+=(st.ecart[n]/maxE)*2;
-    if($('#chkKeys')?.checked && keyNums.has(n)) s+=1.6;
-    if($('#chkMarkov')?.checked) s+=markovScores[n]*2;
-    if($('#chkWeighted')?.checked) s+=weightedScores[n]*1.5;
-    if($('#chkPairs')?.checked){
-      const {pairs}=StatsEngine.computeCooc(draws, period,'win',TODAY);
-      const pairBonus=pairs.filter(p=>p.a===n||p.b===n).slice(0,3).reduce((a,p)=>a+p.c*0.01,0);
-      s+=pairBonus;
-    }
+    if(useHot) s+=(st.freq[n]/maxF)*3;
+    if(useEcart) s+=(st.ecart[n]/maxE)*2;
+    if(useKeys && keyNums.has(n)) s+=1.6;
+    if(useMarkov) s+=markovScores[n]*2;
+    if(useWeighted) s+=weightedScores[n]*1.5;
+    if(usePairs) s+=pairBonus[n];
     scored.push({n,s});
   }
   scored.sort((a,b)=>b.s-a.s||a.n-b.n);
@@ -595,12 +641,17 @@ function wireEvents(){
   });
   const exportAllBtn=$('#btnExportAll');
   if(exportAllBtn) exportAllBtn.addEventListener('click',()=>{
-    const csv=['date,session,win_1,win_2,win_3,win_4,win_5,machine_1,machine_2,machine_3,machine_4,machine_5'];
+    if(!DataLayer.cache.draws.length){ toast('Base vide — rien à exporter','error'); return; }
+    // /!\ Avant: on passait [csv.join('\n')] (tableau de string) à downloadCSV qui
+    // attend un tableau de LIGNES (tableaux de cellules) => TypeError r.map, export cassé.
+    const rows=[['date','session','win_1','win_2','win_3','win_4','win_5','machine_1','machine_2','machine_3','machine_4','machine_5']];
     DataLayer.cache.draws.forEach(d=>{
-      const mach=d.machine.length===5?d.machine:['','','','',''];
-      csv.push(`${d.date},${d.session},${d.win.join(',')},${mach.join(',')}`);
+      const mach=d.machine && d.machine.length===5 ? d.machine : ['','','','',''];
+      rows.push([d.date, d.session, ...d.win, ...mach]);
     });
-    downloadCSV('loto_bonheur_complet.csv', [csv.join('\n')]);
+    downloadCSV('loto_bonheur_complet.csv', rows);
+    DataLayer.log('export',`Export base complète : ${DataLayer.cache.draws.length} tirages`);
+    toast(`Base exportée ⬇ (${DataLayer.cache.draws.length} tirages)`);
   });
   const clearAllBtn=$('#btnClearAll');
   if(clearAllBtn) clearAllBtn.addEventListener('click', async ()=>{
@@ -712,13 +763,16 @@ function wireEvents(){
       if(count>200000) break;
     }
     const cost=combos*stake;
+    // ROI théorique réel, basé sur les multiplicateurs de gains saisis en Backtesting
+    const sysMult={2:parseInt($('#btM2')?.value,10)||2,3:parseInt($('#btM3')?.value,10)||10,4:parseInt($('#btM4')?.value,10)||100,5:parseInt($('#btM5')?.value,10)||2000};
+    const sysROI=theoreticalROI(sysMult);
     const preview=lastSysGrids.slice(0,CONFIG.MAX_TICKET_PREVIEW);
     const out=$('#sysOut');
     if(out) out.innerHTML=`
       <div class="kpis" style="margin-bottom:12px">
         <div class="kpi"><div class="lbl">Formule</div><div class="val" style="font-size:16px">C(${rest.length},${k}) = ${combos.toLocaleString('fr-FR')}</div><div class="sub">${mode==='reduit'?`Champ réduit · ${b} base(s) [${bases.join(', ')}]`:'Permutation complète'}</div></div>
         <div class="kpi"><div class="lbl">Coût total</div><div class="val" style="color:var(--orange)">${cost.toLocaleString('fr-FR')} F</div><div class="sub">${combos} grilles × ${stake} F</div></div>
-        <div class="kpi"><div class="lbl">Espérance théorique</div><div class="val" style="font-size:14px">ROI théorique -${(100- (2/2000*100)).toFixed(0)}%</div><div class="sub">Jeu aléatoire perdant par nature — voir backtest</div></div>
+        <div class="kpi"><div class="lbl">Espérance théorique</div><div class="val" style="font-size:14px;color:${sysROI>=0?'var(--green)':'var(--red)'}">ROI ${sysROI>=0?'+':''}${sysROI.toFixed(1)}%</div><div class="sub">Perte moyenne attendue ${Math.round(Math.abs(sysROI)/100*cost).toLocaleString('fr-FR')} F sur ${cost.toLocaleString('fr-FR')} F misés</div></div>
       </div>
       <p class="muted" style="margin:10px 0 6px">Aperçu (${preview.length} / ${combos}) :</p>
       <div class="ticket">${preview.map((g,i)=> String(i+1).padStart(3,'0')+'  '+g.map(x=>String(x).padStart(2,'0')).join(' - ')).join('\n')}${combos>CONFIG.MAX_TICKET_PREVIEW?'\n…':''}</div>
@@ -788,12 +842,23 @@ function wireEvents(){
 }
 
 function initPWA(){
+  // /!\ En développement le Service Worker sert des assets JS/CSS en cache
+  // (stale-while-revalidate) : les modifications ne s'affichent plus et le HMR
+  // de Vite est cassé. On ne l'enregistre donc qu'en production, et on
+  // désinscrit tout SW résiduel en dev.
+  const isDev = import.meta.env?.DEV;
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').then(r=> {
-      console.log('SW ok',r.scope);
-      // check for updates
-      r.addEventListener('updatefound', ()=> console.log('SW update found'));
-    }).catch(err=> console.log('SW fail',err));
+    if(isDev){
+      navigator.serviceWorker.getRegistrations?.()
+        .then(rs=> rs.forEach(r=> r.unregister()))
+        .catch(()=>{});
+    } else {
+      navigator.serviceWorker.register('/sw.js').then(r=> {
+        console.log('SW ok',r.scope);
+        // check for updates
+        r.addEventListener('updatefound', ()=> console.log('SW update found'));
+      }).catch(err=> console.log('SW fail',err));
+    }
   }
   let deferredPrompt;
   window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; const btn=$('#pwaInstall'); if(btn) btn.style.display='block'; });
