@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite';
 
+// GitHub Pages sert le site sous https://<user>.github.io/<repo>/ : tous les
+// assets doivent donc être préfixés par /<repo>/. En local on reste à la racine.
+// BASE_PATH est injecté par le workflow de déploiement.
+const base = process.env.BASE_PATH || '/';
+
 export default defineConfig({
+  base,
   server: {
     host: '0.0.0.0',
     port: 5173,

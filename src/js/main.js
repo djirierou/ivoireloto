@@ -867,7 +867,7 @@ function initPWA(){
         .then(rs=> rs.forEach(r=> r.unregister()))
         .catch(()=>{});
     } else {
-      navigator.serviceWorker.register('/sw.js').then(r=> {
+      navigator.serviceWorker.register(CONFIG.BASE_URL + 'sw.js', {scope: CONFIG.BASE_URL}).then(r=> {
         console.log('SW ok',r.scope);
         // check for updates
         r.addEventListener('updatefound', ()=> console.log('SW update found'));

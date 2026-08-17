@@ -86,6 +86,20 @@ export default [
     }
   },
 
+  // Fichiers de configuration exécutés par Node
+  {
+    files: ['vite.config.js', 'eslint.config.js'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: {
+        process: 'readonly',
+        __dirname: 'readonly',
+        console: 'readonly'
+      }
+    }
+  },
+
   // Fonction serverless (Edge runtime)
   {
     files: ['api/**/*.js'],

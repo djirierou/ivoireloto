@@ -1,9 +1,15 @@
-const CACHE_NAME = 'loto-bonheur-v2.1.2';
+const CACHE_NAME = 'loto-bonheur-v2.1.3';
+
+// Le Service Worker peut être servi depuis une sous-URL (GitHub Pages:
+// /<repo>/). On dérive donc tous les chemins de son propre scope au lieu de
+// coder « / » en dur, sinon le pré-cache échoue et le repli hors-ligne
+// renvoie la racine du domaine.
+const BASE = new URL('./', self.location).pathname;
 const ASSETS_CORE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/data/real_data.json'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'data/real_data.json'
 ];
 
 // Install - precache core
@@ -33,7 +39,7 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // API proxy - network only (no cache) but with offline fallback
-  if (url.pathname.startsWith('/lonaci-proxy') || url.pathname.startsWith('/api/')) {
+  if (url.pathname.includes('/lonaci-proxy') || url.pathname.includes('/api/')) {
     event.respondWith(
       fetch(req).then(res => {
         if(res.ok && req.url.startsWith(self.location.origin)){
@@ -56,7 +62,7 @@ self.addEventListener('fetch', (event) => {
       }).catch(async () => {
         const cached = await caches.match(req);
         if(cached) return cached;
-        return caches.match('/index.html');
+        return caches.match(BASE + 'index.html');
       })
     );
     return;
