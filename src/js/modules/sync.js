@@ -82,16 +82,34 @@ export function generateTransparencyReport(backtestResult, randomBaseline=null){
   const roi = staked ? (net/staked*100) : 0;
   const expectedPerGame = total ? net/total : 0;
   const isProfitable = net>0;
-  let verdict='Neutre';
-  if(roi<-20) verdict='Perdante (érosion forte)';
-  else if(roi<0) verdict='Perdante';
-  else if(roi<20) verdict='Légèrement positive';
-  else verdict='Rentable sur cet historique';
 
   // Baseline hasard (loi hypergéométrique exacte, tirage 5/90)
   // /!\ Avant: 0.2306 était utilisé comme P(>=2/5). C'est faux: 23.04% est P(exactement 1/5).
   // La vraie P(>=2/5) = 1 - P(0) - P(1) = 2.3296%.
   const excessVsRandom = hitRate - RANDOM_HIT2_PCT;
+
+  // Significativité statistique de l'écart au hasard.
+  // /!\ Avant: le verdict ne dépendait que du ROI, sans tenir compte de la
+  // taille de l'échantillon. Sur 16 tirages, UN SEUL coup de chance donne
+  // 6,25% de hit et l'app annonçait « bat le hasard ». Il faut ici dépasser
+  // ~9,7% pour que ce soit significatif à 95%.
+  const p0 = RANDOM_HIT2_PCT/100;
+  const stdErrPct = total>0 ? Math.sqrt(p0*(1-p0)/total)*100 : Infinity;
+  const zScore = stdErrPct>0 && isFinite(stdErrPct) ? excessVsRandom/stdErrPct : 0;
+  const isSignificant = total>=30 && Math.abs(zScore)>=1.96;
+  // Nombre de tirages requis pour détecter l'écart observé (indicatif)
+  const sampleAdvice = total<30
+    ? "Échantillon trop faible (<30 tirages) : résultat non interprétable."
+    : (!isSignificant ? "Écart non significatif statistiquement (95%) : compatible avec le hasard." : null);
+
+  let verdict='Neutre';
+  if(!isSignificant){
+    // Sans significativité, on ne prétend jamais qu'une stratégie « marche »
+    verdict = total<30 ? 'Indéterminé (échantillon insuffisant)' : 'Indistinguable du hasard';
+  } else if(roi<-20) verdict='Perdante (érosion forte)';
+  else if(roi<0) verdict='Perdante';
+  else if(roi<20) verdict='Légèrement positive';
+  else verdict='Rentable sur cet historique';
 
   return {
     total,
@@ -104,6 +122,9 @@ export function generateTransparencyReport(backtestResult, randomBaseline=null){
     isProfitable,
     verdict,
     excessVsRandom,
+    zScore,
+    isSignificant,
+    sampleAdvice,
     disclaimer: "Résultats sur historique passé, ne garantissent pas le futur. Loto reste aléatoire. Jouez responsablement."
   };
 }

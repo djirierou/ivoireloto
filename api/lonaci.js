@@ -4,7 +4,7 @@ export const config = {
   runtime: 'edge', // for Vercel edge, fallback to node
 };
 
-export default async function handler(req) {
+export default async function handler() {
   const target = 'https://lotobonheur.ci/resultats';
   try{
     const upstream = await fetch(target, {
@@ -37,7 +37,7 @@ export default async function handler(req) {
   }
 }
 
-// For Netlify compatibility
-export async function handlerNetlify(event){
-  return handler(new Request('https://example.com'));
+// Compatibilité Netlify Functions
+export async function handlerNetlify(){
+  return handler();
 }

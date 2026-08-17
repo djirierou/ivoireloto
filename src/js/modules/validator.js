@@ -2,7 +2,11 @@
  * Validation stricte des tirages - sécurité & robustesse
  * Empêche XSS et données malformées
  */
-const SESSION_SAFE_REGEX = /^[a-zA-Z0-9À-ÿ \-_:()\/]{1,60}$/;
+// Liste blanche de caractères. `&`, `'`, `.` et `,` sont autorisés car présents
+// dans des noms de sessions légitimes (« Nuit&Jour », « L'Espoir », « 18h30 »).
+// L'échappement HTML reste appliqué à l'affichage : la sécurité ne repose pas
+// sur cette regex seule, et les chevrons restent interdits.
+const SESSION_SAFE_REGEX = /^[a-zA-Z0-9À-ÿ \-_:()/&'.,]{1,60}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export function sanitizeSession(session){

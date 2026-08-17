@@ -7,11 +7,10 @@ import { validateDraw } from './modules/validator.js';
 import { syncOfficial, generateTransparencyReport, RANDOM_HIT2_PCT, theoreticalROI } from './modules/sync.js';
 
 const TODAY = new Date();
-let charts = { top:null, cls:null, months:null, stats:null, bt:null };
-let sysSel = new Set();
+const charts = { top:null, cls:null, months:null, stats:null, bt:null };
+const sysSel = new Set();
 let lastSysGrids = [];
 let lastPred = [];
-let lastBacktestReport = null;
 
 const TITLES = {
   dash:'Tableau de bord',
@@ -28,12 +27,20 @@ const TITLES = {
 };
 
 let worker = null;
+let workerBroken = false;
 function getWorker(){
+  if(workerBroken) return null;
   if(worker) return worker;
   try{
     worker = new Worker(new URL('./workers/similarityWorker.js', import.meta.url), {type:'module'});
-  }catch{
-    worker = new Worker('/src/js/workers/similarityWorker.js');
+  }catch(e){
+    // /!\ Avant: le repli pointait sur '/src/js/workers/similarityWorker.js',
+    // un chemin qui n'existe QUE en dev — en production (dist/) il renvoie 404.
+    // On marque le worker comme indisponible pour basculer sur le calcul
+    // synchrone plutôt que de relancer un Worker cassé à chaque recherche.
+    console.warn('Worker indisponible, calcul synchrone', e);
+    workerBroken = true;
+    worker = null;
   }
   return worker;
 }
@@ -313,6 +320,7 @@ async function runSimilarity(){
 
   try{
     const w=getWorker();
+    if(!w) throw new Error('Worker indisponible');
     // /!\ Avant: la promesse n'avait ni onerror ni timeout — si le Worker plantait,
     // elle restait pending et l'UI restait bloquée sur les squelettes de chargement.
     const promise=new Promise((resolve,reject)=>{
@@ -330,6 +338,8 @@ async function runSimilarity(){
     processSimilarityResults(res.filter(r=>r.i!==selfIndex), q, scope, limit);
   }catch(err){
     console.warn('Worker failed, fallback',err);
+    workerBroken = true;
+    if(worker){ try{ worker.terminate(); }catch{} worker=null; }
     const qset=new Set(q);
     const res=[];
     draws.forEach((d,i)=>{
@@ -376,12 +386,11 @@ function runBacktest(){
   try{
     const result=StatsEngine.backtest(draws, strat, warm, stake, mult);
     const transparency = generateTransparencyReport(result);
-    lastBacktestReport = transparency;
 
     $('#btKpis').innerHTML=`
       <div class="kpi"><div class="lbl">Hit rate (≥2/5)</div><div class="val" style="color:${result.hitRate>=RANDOM_HIT2_PCT?'var(--green)':'var(--orange)'}">${result.hitRate.toFixed(1)}% <span style="font-size:11px;color:var(--muted)">vs hasard ${RANDOM_HIT2_PCT}%</span></div><div class="sub">${result.total} tirages · écart vs hasard ${(transparency.excessVsRandom).toFixed(1)}%</div></div>
       <div class="kpi"><div class="lbl">Espérance nette / jeu</div><div class="val" style="color:${transparency.expectedPerGame>=0?'var(--green)':'var(--red)'}">${transparency.expectedPerGame>=0?'+':''}${transparency.expectedPerGame.toFixed(1)} F</div><div class="sub">Net ${transparency.net.toLocaleString('fr-FR')} F · ROI ${transparency.roi.toFixed(1)}%</div></div>
-      <div class="kpi"><div class="lbl">Verdict transparence</div><div class="val" style="font-size:13px">${escapeHTML(transparency.verdict)}</div><div class="sub"><span class="badge ${transparency.isProfitable?'ok':'err'}">${transparency.isProfitable?'Rentable historique':'Perdante'}</span></div></div>
+      <div class="kpi"><div class="lbl">Verdict transparence</div><div class="val" style="font-size:13px">${escapeHTML(transparency.verdict)}</div><div class="sub"><span class="badge ${transparency.isSignificant?(transparency.isProfitable?'ok':'err'):'neutral'}">${transparency.isSignificant?(transparency.isProfitable?'Rentable historique':'Perdante'):'Non significatif'}</span></div></div>
       <div class="kpi"><div class="lbl">Drawdown max</div><div class="val" style="color:var(--red)">${result.maxDD.toLocaleString('fr-FR')} F</div><div class="sub">Défaite max ${result.maxLose} · Victoire max ${result.maxWin}</div></div>
     `;
 
@@ -403,11 +412,13 @@ function runBacktest(){
         <div class="key-card"><h4>Espérance / mise</h4><div style="font-size:18px;font-weight:800">${transparency.roi.toFixed(2)}% ROI</div><div class="muted" style="font-size:12px">Gain moyen par jeu ${transparency.expectedPerGame.toFixed(2)} F</div></div>
         <div class="key-card"><h4>Comparaison hasard</h4><div style="font-size:18px;font-weight:800">${transparency.excessVsRandom>0?'+':''}${transparency.excessVsRandom.toFixed(1)}% hit rate</div><div class="muted" style="font-size:12px">Vs théorique hasard ${RANDOM_HIT2_PCT}% pour ≥2/5</div></div>
       </div>
+      ${transparency.sampleAdvice?`<p class="badge warn" style="display:inline-block;margin-top:10px">📉 ${escapeHTML(transparency.sampleAdvice)}</p>`:''}
       <p class="muted" style="margin-top:12px;font-size:12px;border-top:1px solid var(--line);padding-top:10px">⚠️ ${escapeHTML(transparency.disclaimer)} Backtest sur historique uniquement.</p>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
         <span class="badge ${transparency.roi>0?'ok':'err'}">ROI ${transparency.roi.toFixed(1)}%</span>
         <span class="badge ${transparency.hitRate>RANDOM_HIT2_PCT?'ok':'neutral'}">Hit ${transparency.hitRate.toFixed(1)}% vs ${RANDOM_HIT2_PCT}% hasard</span>
         <span class="badge warn">Drawdown ${transparency.maxDD.toLocaleString()} F</span>
+        <span class="badge ${transparency.isSignificant?'ok':'neutral'}">z = ${transparency.zScore.toFixed(2)} ${transparency.isSignificant?'(significatif à 95%)':'(non significatif)'}</span>
       </div>
     `;
 
@@ -533,7 +544,7 @@ async function handleFiles(files){
         if(Array.isArray(parsed)) data=parsed;
         else if(parsed.draws) data=parsed.draws;
         else data=[parsed];
-      }catch(e){ toast('Fichier JSON invalide — schéma attendu tableau de tirages','error'); continue; }
+      }catch{ toast('Fichier JSON invalide — schéma attendu tableau de tirages','error'); continue; }
     } else { toast('Format non supporté (CSV ou JSON)','error'); continue; }
     if(data.length>0){
       $('#importProgress').style.display='block';
@@ -693,7 +704,7 @@ function wireEvents(){
     const errBox=$('#dfErr'); if(errBox) errBox.innerHTML=errs.map(m=>`<div>⛔ ${escapeHTML(m)}</div>`).join('');
     if(errs.length){ errs.forEach(m=>DataLayer.log('erreur',m)); toast('Validation refusée.','error'); return; }
     try{
-      await DataLayer.putDraw({...v.sanitized, id:Date.now()});
+      await DataLayer.putDraw({...v.sanitized});
       updateStatsUI(); invalidateCache(); refreshBadge();
       DataLayer.log('succès',`Tirage ${session} du ${fmtDate(date)} enregistré — Win [${win.join(' ')}]`);
       toast('Tirage enregistré ✅');
@@ -741,7 +752,7 @@ function wireEvents(){
   if(sysCalc) sysCalc.addEventListener('click',()=>{
     const arr=[...sysSel].sort((a,b)=>a-b); if(arr.length<5){ toast('Sélectionnez au moins 5 pions.','error'); return; }
     const mode=$('#sysMode')?.value||'perm', stake=parseInt($('#sysStake')?.value,10)||200;
-    let bases=[];
+    const bases=[];
     if(mode==='reduit'){
       const b1=parseInt($('#sysB1')?.value,10), b2=parseInt($('#sysB2')?.value,10);
       if(!isNaN(b1)) bases.push(b1); if(!isNaN(b2)&&b2!==b1) bases.push(b2);
@@ -752,16 +763,18 @@ function wireEvents(){
     if(combos>CONFIG.MAX_TICKET_COMBOS){
       if(!confirm(`⚠️ ${combos.toLocaleString('fr-FR')} combinaisons — coût ${(combos*stake).toLocaleString()} F. Confirmer ?`)) return;
     }
+    // /!\ Avant: on matérialisait jusqu'à 100 000 grilles (itération jusqu'à
+    // 200 000) alors que le garde-fou annoncé est MAX_TICKET_COMBOS (20 000).
+    // L'export CSV contenait alors silencieusement une fraction du total
+    // affiché (ex: 100k lignes pour « 43 949 268 combinaisons »).
+    // On plafonne explicitement et on prévient l'utilisateur.
+    const cap=CONFIG.MAX_TICKET_COMBOS;
     lastSysGrids=[];
-    let count=0;
     for(const c of combsIter(rest,k)){
-      if(count<100000){
-        lastSysGrids.push([...bases,...c].sort((a,b)=>a-b));
-      }
-      count++;
-      if(count>=combos) break;
-      if(count>200000) break;
+      lastSysGrids.push([...bases,...c].sort((a,b)=>a-b));
+      if(lastSysGrids.length>=cap) break;
     }
+    const truncated = combos>lastSysGrids.length;
     const cost=combos*stake;
     // ROI théorique réel, basé sur les multiplicateurs de gains saisis en Backtesting
     const sysMult={2:parseInt($('#btM2')?.value,10)||2,3:parseInt($('#btM3')?.value,10)||10,4:parseInt($('#btM4')?.value,10)||100,5:parseInt($('#btM5')?.value,10)||2000};
@@ -774,7 +787,8 @@ function wireEvents(){
         <div class="kpi"><div class="lbl">Coût total</div><div class="val" style="color:var(--orange)">${cost.toLocaleString('fr-FR')} F</div><div class="sub">${combos} grilles × ${stake} F</div></div>
         <div class="kpi"><div class="lbl">Espérance théorique</div><div class="val" style="font-size:14px;color:${sysROI>=0?'var(--green)':'var(--red)'}">ROI ${sysROI>=0?'+':''}${sysROI.toFixed(1)}%</div><div class="sub">Perte moyenne attendue ${Math.round(Math.abs(sysROI)/100*cost).toLocaleString('fr-FR')} F sur ${cost.toLocaleString('fr-FR')} F misés</div></div>
       </div>
-      <p class="muted" style="margin:10px 0 6px">Aperçu (${preview.length} / ${combos}) :</p>
+      ${truncated?`<p class="badge warn" style="display:inline-block;margin:10px 0 4px">⚠️ Seules les ${lastSysGrids.length.toLocaleString('fr-FR')} premières grilles sont générées et exportables (sur ${combos.toLocaleString('fr-FR')}).</p>`:''}
+      <p class="muted" style="margin:10px 0 6px">Aperçu (${preview.length} / ${lastSysGrids.length.toLocaleString('fr-FR')} générées) :</p>
       <div class="ticket">${preview.map((g,i)=> String(i+1).padStart(3,'0')+'  '+g.map(x=>String(x).padStart(2,'0')).join(' - ')).join('\n')}${combos>CONFIG.MAX_TICKET_PREVIEW?'\n…':''}</div>
     `;
     DataLayer.log('succès',`Système calculé : ${combos} combinaisons, coût ${cost} FCFA.`);
@@ -784,7 +798,7 @@ function wireEvents(){
   if(sysCsv) sysCsv.addEventListener('click',()=>{
     if(!lastSysGrids.length){ toast('Calculez d\'abord un système.','error'); return; }
     downloadCSV('ticket_systeme_loto_bonheur.csv', [['Grille','Numéros'], ...lastSysGrids.map((g,i)=>['G'+(i+1), g.join(' ')])]);
-    toast('Ticket exporté ⬇');
+    toast(`Ticket exporté ⬇ (${lastSysGrids.length.toLocaleString('fr-FR')} grilles)`);
   });
 
   const btnGen=$('#btnGen');

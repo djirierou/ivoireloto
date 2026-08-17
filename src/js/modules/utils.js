@@ -2,7 +2,21 @@ export const $ = s => document.querySelector(s);
 export const $$ = s => Array.from(document.querySelectorAll(s));
 
 export const TODAY = new Date();
-export const iso = d => d.toISOString().slice(0,10);
+
+/**
+ * Date au format YYYY-MM-DD dans le fuseau LOCAL.
+ * /!\ Avant: `d.toISOString().slice(0,10)` convertit en UTC. Pour un utilisateur
+ * à l'ouest de Greenwich (UTC-4 par ex.), saisir un tirage à 21h locales
+ * pré-remplissait la date du LENDEMAIN — que le validateur refusait ensuite
+ * comme « date future ». La Côte d'Ivoire est en UTC+0 donc le bug était
+ * invisible ici, mais il cassait l'app pour la diaspora.
+ */
+export const iso = d => {
+  const dt = (d instanceof Date) ? d : new Date(d);
+  if(isNaN(dt.getTime())) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+};
 export const fmtDate = s => {
   try {
     return new Date(s+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
@@ -90,7 +104,7 @@ export function parseCSVLine(line, delim=','){
 export function normalizeDate(v){
   const s=String(v).trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const m=s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if(m){
     const [,d,mo,y]=m;
     return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -118,8 +132,8 @@ export function parseCSV(text){
 
     // Format « groupé » produit par l'export historique de l'app :
     // Date;Session;"1 2 3 4 5";"6 7 8 9 10";Somme
-    if(values.length>=3 && /\d+[\s\-]+\d+/.test(values[2])){
-      const g=s=>String(s||'').split(/[\s\-]+/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n)&&n>=1&&n<=90);
+    if(values.length>=3 && /\d+[\s-]+\d+/.test(values[2])){
+      const g=s=>String(s||'').split(/[\s-]+/).map(n=>parseInt(n,10)).filter(n=>!isNaN(n)&&n>=1&&n<=90);
       const win=g(values[2]);
       const machine=g(values[3]);
       if(win.length===5 && new Set(win).size===5){
@@ -144,57 +158,110 @@ export function parseCSV(text){
   return draws;
 }
 
+/** Sessions LONACI reconnues dans un collage libre. */
+const SESSION_PATTERN = /(Special Weekend(?:\s*\d+h)?|Digital Reveil(?:\s*\d+h)?|Digital\s*\d+h|Soutra|Diamant|Moaye|Afterwork|National|Benediction|B\u00e9n\u00e9diction|Prestige|Awale|Awal\u00e9|Espoir|Fortune|Fortun\u00e9|Akwaba|Sika|Matinale|Midi|Soir|Special)/i;
+
+/**
+ * Extrait des tirages depuis un collage libre (texte copié du site LONACI).
+ *
+ * Corrections v2.1.2 :
+ *  - la 2e ligne de 5 numéros est rattachée comme MACHINE du tirage courant.
+ *    Avant, `currentSession` était remis à null juste après le Win, donc la
+ *    ligne Machine tombait dans la branche « heuristique » et créait un
+ *    TIRAGE FANTÔME daté d'aujourd'hui et intitulé « Import ».
+ *  - plus d'invention de tirages sans date ni session identifiées.
+ *  - le HTML est nettoyé (scripts/styles/balises) avant analyse, car
+ *    syncOfficial() passe directement du HTML brut ici : les tailles CSS
+ *    (`12px`, `5px 7px 9px 11px`) étaient lues comme des numéros.
+ */
 export function parsePasteText(text){
-  // Expected format from lotobonheur.ci copied
-  // Try to extract dates like 01/08/2025 or 2025-08-01 and 5 numbers
   const draws=[];
-  // Normalize
-  const lines=text.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  if(typeof text!=='string' || !text.trim()) return draws;
+
+  // Neutralise le HTML éventuel (sync via proxy renvoie une page complète)
+  let clean=text;
+  if(/<[a-z!/][\s\S]*?>/i.test(clean)){
+    // Les balises INLINE (span, b, td...) deviennent des espaces : sur le site
+    // chaque numéro est dans son propre <span>, les transformer en sauts de
+    // ligne éclaterait « 16 79 40 4 18 » en cinq lignes d'un seul chiffre.
+    // Seules les balises de BLOC introduisent un saut de ligne.
+    clean=clean
+      .replace(/<(script|style|head|noscript)[\s\S]*?<\/\1>/gi,' ')
+      .replace(/<!--[\s\S]*?-->/g,' ')
+      .replace(/<\s*(br|\/?(?:div|p|tr|li|section|article|h[1-6]|table|tbody|thead))\b[^>]*>/gi,'\n')
+      .replace(/<[^>]+>/g,' ')
+      .replace(/&nbsp;/gi,' ')
+      .replace(/&amp;/gi,'&');
+  }
+
+  const lines=clean.split(/\n/).map(l=>l.trim()).filter(Boolean);
+  const dateRegex=/(\d{4}-\d{2}-\d{2})|(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/;
+
   let currentDate=null;
   let currentSession=null;
+  let pending=null; // tirage attendant éventuellement sa ligne Machine
 
-  const dateRegex = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\d{4}-\d{2}-\d{2})/;
-  const sessionRegex = /(Special Weekend|Digital Reveil|Digital \d+h|Soutra|Diamant|Moaye|Afterwork|National|Benediction|Prestige|Awale|Espoir|Midi|Soir|Special)/i;
-  const numbersRegex = /(\b\d{1,2}\b[\s\-]+){4,}\b\d{1,2}\b/g;
+  const flush=()=>{ if(pending){ draws.push(pending); pending=null; } };
 
   for(const line of lines){
     const dMatch=line.match(dateRegex);
     if(dMatch){
-      let d=dMatch[0];
-      // convert dd/mm/yyyy to yyyy-mm-dd
-      if(d.includes('/')){
-        const [day,month,year]=d.split('/').map(Number);
-        if(day&&month&&year){
-          const yy=year<100?2000+year:year;
-          currentDate=`${yy}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      flush();
+      const raw=dMatch[0];
+      if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) currentDate=raw;
+      else{
+        const [d,m,y]=raw.split(/[/-]/).map(Number);
+        if(d&&m&&y){
+          const yy=y<100?2000+y:y;
+          currentDate=`${yy}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         }
-      } else if(d.match(/\d{2}-\d{2}-\d{4}/)){
-        // dd-mm-yyyy
-        const [day,month,year]=d.split('-').map(Number);
-        currentDate=`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      } else currentDate=d;
-      const sMatch=line.match(sessionRegex);
-      if(sMatch) currentSession=sMatch[0];
+      }
+      const sInline=line.match(SESSION_PATTERN);
+      if(sInline) currentSession=sInline[0].replace(/\s+/g,' ').trim();
       continue;
     }
-    const sMatch=line.match(sessionRegex);
-    if(sMatch) currentSession=sMatch[0];
 
-    // extract numbers groups
-    const nums=(line.match(/\b\d{1,2}\b/g)||[]).map(Number).filter(n=>n>=1&&n<=90);
-    if(nums.length>=5){
-      // first 5 are win, next 5 machine if available
-      const win=nums.slice(0,5);
-      const machine=nums.length>=10 ? nums.slice(5,10) : [];
-      if(currentDate && currentSession && new Set(win).size===5){
-        draws.push({date:currentDate, session:currentSession, win, machine});
-        currentSession=null; // reset to avoid duplication
-      } else if(nums.length===5 && new Set(nums).size===5){
-        // heuristic: if no context, use today and fallback session
-        draws.push({date: iso(new Date()), session: 'Import', win:nums, machine:[]});
+    const sMatch=line.match(SESSION_PATTERN);
+    if(sMatch){
+      flush();
+      currentSession=sMatch[0].replace(/\s+/g,' ').trim();
+      continue;
+    }
+
+    // Ligne composée essentiellement de numéros
+    const tokens=line.split(/[^0-9]+/).filter(Boolean);
+    if(tokens.length<5) continue;
+    const nums=tokens.map(Number).filter(n=>n>=1&&n<=90);
+    if(nums.length<5) continue;
+
+    const first=nums.slice(0,5);
+    if(new Set(first).size!==5) continue;
+
+    // Machine sur la même ligne (10 numéros d'affilée)
+    if(nums.length>=10){
+      const mach=nums.slice(5,10);
+      flush();
+      if(currentDate && currentSession){
+        draws.push({date:currentDate, session:currentSession, win:first,
+                    machine:new Set(mach).size===5?mach:[]});
       }
+      continue;
+    }
+
+    if(pending && !pending.machine.length){
+      // 2e bloc de 5 numéros => Machine du tirage précédent
+      pending.machine=first;
+      flush();
+      continue;
+    }
+
+    flush();
+    // /!\ Aucune invention de tirage : sans date ET session, on ignore la ligne.
+    if(currentDate && currentSession){
+      pending={date:currentDate, session:currentSession, win:first, machine:[]};
     }
   }
+  flush();
   return draws;
 }
 

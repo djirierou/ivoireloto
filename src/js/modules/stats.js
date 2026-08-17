@@ -1,4 +1,4 @@
-import { LRUCache, sum, map90 } from './utils.js';
+import { LRUCache, sum, map90, iso as localISO } from './utils.js';
 
 const cache = new LRUCache(200);
 
@@ -27,10 +27,14 @@ function sig(draws){
 export const StatsEngine = {
   drawsInPeriod(draws, p, TODAY=new Date()){
     if(p==='all') return draws;
+    const days=parseInt(p,10);
+    // /!\ Avant: une période non numérique donnait setDate(NaN) -> Invalid Date
+    // -> toISOString() levait RangeError et la vue restait blanche.
+    if(!Number.isFinite(days)) return draws;
     const c=new Date(TODAY);
-    c.setDate(c.getDate()-parseInt(p,10));
-    const iso=d=>d.toISOString().slice(0,10);
-    const cut=iso(c);
+    if(isNaN(c.getTime())) return draws;
+    c.setDate(c.getDate()-days);
+    const cut=localISO(c);
     return draws.filter(d=>d.date>=cut);
   },
 
@@ -191,8 +195,8 @@ export const StatsEngine = {
     const N=draws.length;
     if(N-warm<5) throw new Error('Historique insuffisant');
     // Incremental freq and lastSeen for hot/ecart/mix
-    let freq=new Array(91).fill(0);
-    let lastSeen=new Array(91).fill(-1);
+    const freq=new Array(91).fill(0);
+    const lastSeen=new Array(91).fill(-1);
     // Initialize for warm period
     for(let i=0;i<warm;i++){
       draws[i].win.forEach(n=> freq[n]++);

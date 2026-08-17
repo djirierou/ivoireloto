@@ -41,6 +41,26 @@ function lsSet(key, val){
 }
 
 /**
+ * Identifiant unique monotone.
+ * /!\ Avant: `Date.now()` (main.js) ou `Date.now()+i+Math.random()` étaient
+ * utilisés comme clé primaire IndexedDB. Deux tirages enregistrés dans la même
+ * milliseconde recevaient la même clé et le second ÉCRASAIT silencieusement le
+ * premier. `Date.now()+i+Math.random()` pouvait aussi collisionner entre deux
+ * imports (i et la partie aléatoire se recouvrant).
+ */
+let _lastId = 0;
+export function nextId(){
+  // Compteur strictement croissant, borné par MAX_SAFE_INTEGER.
+  // Base = horodatage en microsecondes (Date.now()*1000, sûr jusqu'en l'an
+  // 2255) ; si plusieurs identifiants sont demandés dans la même milliseconde
+  // — ou si l'horloge recule (NTP, changement d'heure) — on incrémente
+  // simplement le dernier identifiant émis.
+  const base = Date.now() * 1000;
+  _lastId = base > _lastId ? base : _lastId + 1;
+  return _lastId;
+}
+
+/**
  * Garantit la forme canonique d'un tirage.
  * /!\ Les tirages venant d'IndexedDB (anciennes versions) ou d'un JSON externe
  * peuvent ne pas avoir de champ `machine` -> TypeError dans tous les rendus
@@ -131,7 +151,7 @@ export const DataLayer = {
     // validate before
     const v = validateDraw(draw);
     if(!v.ok) throw new Error(v.errors.join('; '));
-    const sanitized = {...v.sanitized, id: draw.id || Date.now()+Math.random()};
+    const sanitized = {...v.sanitized, id: draw.id || nextId()};
     const db = await getDB();
     this.cache.draws.push(sanitized);
     this.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
@@ -200,7 +220,7 @@ export const DataLayer = {
       const json = await res.json();
       const validation = validateImportArray(json);
       // add ids
-      const draws = validation.valid.map((d,i)=> ({id: Date.now()+i+Math.random(), ...d}));
+      const draws = validation.valid.map((d)=> ({id: nextId(), ...d}));
       return {draws, skipped: validation.invalid.length, errors: validation.invalid.slice(0,5)};
     }catch(e){
       console.warn('loadRealDataJson failed, fallback', e);
@@ -223,7 +243,7 @@ export const DataLayer = {
       for(const d of batch){
         const key=d.date+'|'+d.session;
         if(!existing.has(key)){
-          newDraws.push({id: Date.now()+imported+Math.random(), ...d});
+          newDraws.push({id: nextId(), ...d});
           existing.add(key);
           imported++;
         } else skippedDup++;

@@ -1,5 +1,5 @@
 export const CONFIG = {
-  VERSION: '2.1.1',
+  VERSION: '2.1.2',
   DB_NAME: 'loto-bonheur-v2',
   STORE_DRAWS: 'draws',
   STORE_LOGS: 'logs',
