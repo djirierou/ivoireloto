@@ -1,7 +1,8 @@
 import { openDB } from 'idb';
-import { CONFIG } from './config.js';
+import { CONFIG, REAL_DATA_FALLBACK } from './config.js';
+import { validateDraw, validateImportArray } from './validator.js';
 
-const DB_VERSION = 2;
+const DB_VERSION = 3; // bumped for schema
 
 let dbPromise = null;
 
@@ -29,7 +30,6 @@ function getDB(){
   return dbPromise;
 }
 
-// Fallback localStorage helpers
 function lsGet(key, def){
   try{
     const v=localStorage.getItem(key);
@@ -48,7 +48,6 @@ export const DataLayer = {
     const db = await getDB();
     if(!db){
       this.useIDB=false;
-      // fallback
       const draws = lsGet(CONFIG.LS_FALLBACK.draws, null);
       const logs = lsGet(CONFIG.LS_FALLBACK.logs, []);
       const cfg = lsGet(CONFIG.LS_FALLBACK.cfg, {hot:15,cold:15});
@@ -60,7 +59,6 @@ export const DataLayer = {
       return null;
     }
 
-    // load existing data
     const tx = db.transaction([CONFIG.STORE_DRAWS, CONFIG.STORE_LOGS, CONFIG.STORE_CFG], 'readonly');
     const draws = await tx.objectStore(CONFIG.STORE_DRAWS).getAll();
     let logs = [];
@@ -75,7 +73,6 @@ export const DataLayer = {
     this.cache.logs = logs.map(l=> ({ts: new Date(l.ts).toLocaleString('fr-FR'), type:l.type, msg:l.msg})).slice(0,250);
     this.cache.cfg = cfg;
 
-    // if empty, try to migrate from LS
     if(!draws.length){
       const lsDraws = lsGet(CONFIG.LS_FALLBACK.draws, null);
       if(lsDraws && lsDraws.length){
@@ -105,7 +102,6 @@ export const DataLayer = {
       lsSet(CONFIG.LS_FALLBACK.draws, this.cache.draws);
       return;
     }
-    // For simplicity, clear and bulk put (for small to medium datasets). For large, use bulk.
     const tx = db.transaction(CONFIG.STORE_DRAWS, 'readwrite');
     await tx.store.clear();
     for(const d of this.cache.draws) await tx.store.put(d);
@@ -113,11 +109,16 @@ export const DataLayer = {
   },
 
   async putDraw(draw){
+    // validate before
+    const v = validateDraw(draw);
+    if(!v.ok) throw new Error(v.errors.join('; '));
+    const sanitized = {...v.sanitized, id: draw.id || Date.now()+Math.random()};
     const db = await getDB();
-    this.cache.draws.push(draw);
+    this.cache.draws.push(sanitized);
     this.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
-    if(!db || !this.useIDB){ lsSet(CONFIG.LS_FALLBACK.draws, this.cache.draws); return; }
-    await db.put(CONFIG.STORE_DRAWS, draw);
+    if(!db || !this.useIDB){ lsSet(CONFIG.LS_FALLBACK.draws, this.cache.draws); return sanitized; }
+    await db.put(CONFIG.STORE_DRAWS, sanitized);
+    return sanitized;
   },
 
   async saveCfg(){
@@ -127,8 +128,10 @@ export const DataLayer = {
   },
 
   async log(type, msg){
-    const entry={ts: Date.now(), type, msg};
-    this.cache.logs.unshift({ts: new Date(entry.ts).toLocaleString('fr-FR'), type, msg});
+    // sanitize msg
+    const safeMsg = String(msg).slice(0,500);
+    const entry={ts: Date.now(), type, msg:safeMsg};
+    this.cache.logs.unshift({ts: new Date(entry.ts).toLocaleString('fr-FR'), type, msg:safeMsg});
     if(this.cache.logs.length>250) this.cache.logs.length=250;
     const db = await getDB();
     if(!db || !this.useIDB){ lsSet(CONFIG.LS_FALLBACK.logs, this.cache.logs); return; }
@@ -136,7 +139,6 @@ export const DataLayer = {
       await db.add(CONFIG.STORE_LOGS, entry);
       const all=await db.getAll(CONFIG.STORE_LOGS);
       if(all.length>300){
-        // prune oldest
         const toDelete = all.sort((a,b)=>a.ts-b.ts).slice(0, all.length-250);
         const tx=db.transaction(CONFIG.STORE_LOGS,'readwrite');
         for(const r of toDelete) await tx.store.delete(r.id);
@@ -159,39 +161,55 @@ export const DataLayer = {
     await db.clear(CONFIG.STORE_DRAWS);
   },
 
-  parseReal(REAL_DATA){
+  parseRealFallback(){
     const out=[]; let skipped=0;
-    REAL_DATA.forEach((r,i)=>{
+    REAL_DATA_FALLBACK.forEach((r,i)=>{
       const [date,session,ws,ms]=r;
-      const win=ws.split(' ').map(Number);
-      const mach=ms?ms.split(' ').map(Number):[];
-      const vW=win.length===5&&win.every(n=>n>=1&&n<=90)&&new Set(win).size===5;
-      const vM=mach.length===0||(mach.length===5&&mach.every(n=>n>=1&&n<=90)&&new Set(mach).size===5);
-      if(vW&&vM) out.push({id:i+1,date,session,win,machine:mach}); else skipped++;
+      const win=ws.split(' ').map(Number).filter(n=>!isNaN(n));
+      const mach=ms?ms.split(' ').map(Number).filter(n=>!isNaN(n)):[];
+      const cand={date, session, win, machine:mach};
+      const v=validateDraw(cand);
+      if(v.ok) out.push({id:i+1, ...v.sanitized}); else skipped++;
     });
     return {draws:out,skipped};
   },
 
+  async loadRealDataJson(){
+    try{
+      const res = await fetch(CONFIG.DATA_URL, {cache:'no-cache'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const json = await res.json();
+      const validation = validateImportArray(json);
+      // add ids
+      const draws = validation.valid.map((d,i)=> ({id: Date.now()+i+Math.random(), ...d}));
+      return {draws, skipped: validation.invalid.length, errors: validation.invalid.slice(0,5)};
+    }catch(e){
+      console.warn('loadRealDataJson failed, fallback', e);
+      return this.parseRealFallback();
+    }
+  },
+
   async importData(data, onProgress){
+    // data can be raw array or already validated; we validate strictly
+    const validation = validateImportArray(data);
+    const toImport = validation.valid;
     const BATCH_SIZE=1000;
-    let imported=0, skipped=0;
+    let imported=0;
+    const skippedInitial = validation.invalid.length;
+    let skippedDup=0;
     const existing=new Set(this.cache.draws.map(d=> d.date+'|'+d.session));
     const newDraws=[];
-    for(let i=0;i<data.length;i+=BATCH_SIZE){
-      const batch=data.slice(i,i+BATCH_SIZE);
+    for(let i=0;i<toImport.length;i+=BATCH_SIZE){
+      const batch=toImport.slice(i,i+BATCH_SIZE);
       for(const d of batch){
         const key=d.date+'|'+d.session;
-        if(!existing.has(key) && d.win && d.win.length===5){
-          // validate
-          if(d.win.every(n=>n>=1&&n<=90) && new Set(d.win).size===5){
-            const mach = d.machine && d.machine.length===5 ? d.machine : [];
-            newDraws.push({id: Date.now()+imported+Math.random(), date:d.date, session:d.session, win:d.win, machine:mach});
-            existing.add(key);
-            imported++;
-          } else skipped++;
-        } else skipped++;
+        if(!existing.has(key)){
+          newDraws.push({id: Date.now()+imported+Math.random(), ...d});
+          existing.add(key);
+          imported++;
+        } else skippedDup++;
       }
-      if(onProgress) onProgress(Math.round((i+batch.length)/data.length*100), imported, skipped);
+      if(onProgress) onProgress(Math.round((i+batch.length)/toImport.length*100), imported, skippedInitial+skippedDup, validation.invalid);
       await new Promise(r=>setTimeout(r,0));
     }
     if(newDraws.length){
@@ -199,7 +217,7 @@ export const DataLayer = {
       this.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
       await this.saveDraws();
     }
-    if(imported) await this.log('succès', `Import : ${imported} tirages ajoutés`);
-    return {imported, skipped};
+    if(imported) await this.log('succès', `Import : ${imported} tirages ajoutés, ${skippedInitial+skippedDup} rejetés/doublons`);
+    return {imported, skipped: skippedInitial+skippedDup, invalid: validation.invalid};
   }
 };

@@ -1,14 +1,17 @@
-import { CONFIG, REAL_DATA } from './modules/config.js';
-import { $, $$, iso, fmtDate, sum, map90, escapeHTML, parseCSV, parsePasteText, toast, downloadCSV, ball, debounce, C, combsIter } from './modules/utils.js';
+import { CONFIG } from './modules/config.js';
+import { $, $$, iso, fmtDate, sum, escapeHTML, parseCSV, parsePasteText, toast, downloadCSV, ball, debounce, C, combsIter } from './modules/utils.js';
 import { DataLayer } from './modules/db.js';
 import { StatsEngine, invalidateCache } from './modules/stats.js';
 import { createTopChart, createClassChart, createLineChart, createHorizBar, createEquityChart } from './modules/charts.js';
+import { validateDraw } from './modules/validator.js';
+import { syncOfficial, generateTransparencyReport } from './modules/sync.js';
 
 const TODAY = new Date();
 let charts = { top:null, cls:null, months:null, stats:null, bt:null };
 let sysSel = new Set();
 let lastSysGrids = [];
 let lastPred = [];
+let lastBacktestReport = null;
 
 const TITLES = {
   dash:'Tableau de bord',
@@ -17,7 +20,7 @@ const TITLES = {
   stats:'Moteur statistiques & indicateurs',
   cooc:'Matrice de corrélation & co-occurrences',
   sim:'Recherche par similitude avancée',
-  back:'Backtesting rétrospectif des stratégies',
+  back:'Backtesting rétrospectif — transparence',
   sys:'Systèmes, permutations & mises',
   pred:'Clefs empiriques & prédictions',
   alert:'Alertes & acquisition automatique',
@@ -35,12 +38,15 @@ function getWorker(){
   return worker;
 }
 
-// ---------- Navigation ----------
 function go(view){
   $$('.view').forEach(x=>x.classList.remove('active'));
   const target = document.getElementById('view-'+view);
   if(target) target.classList.add('active');
-  $$('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  $$('.nav-btn').forEach(b=>{
+    const isActive = b.dataset.view===view;
+    b.classList.toggle('active', isActive);
+    if(isActive) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
+  });
   const titleEl=$('#topTitle');
   if(titleEl) titleEl.innerHTML=TITLES[view].replace('&','<em>&</em>');
   const map = {
@@ -57,9 +63,11 @@ function go(view){
     logs: renderLogs
   };
   (map[view]||(()=>{}))();
+  // announce for screen readers
+  const live = $('#a11yLive');
+  if(live) live.textContent = `Vue ${TITLES[view]} affichée`;
 }
 
-// ---------- Data stats UI ----------
 function updateStatsUI(){
   const draws = DataLayer.cache.draws;
   const countEl=$('#dataCount'); if(countEl) countEl.textContent=draws.length;
@@ -84,7 +92,6 @@ function updateStatsUI(){
   if(periodEl) periodEl.textContent=`${fmtDate(minDate)} → ${fmtDate(maxDate)}`;
 }
 
-// ---------- Alerts ----------
 function computeAlerts(){
   const draws=DataLayer.cache.draws;
   const alerts=[];
@@ -100,10 +107,9 @@ function computeAlerts(){
   }
   const last=StatsEngine.lastDraw(draws);
   if(last){
-    // quick similarity without worker (small)
     const scores=draws.map(d=> d.win.filter(nn=> last.win.includes(nn)).length);
     for(let i=0;i<draws.length-1;i++){
-      if(scores[i]>=4) alerts.push({type:'sim', msg:`🧬 Le dernier tirage partage ${scores[i]} pions avec le tirage du ${fmtDate(draws[i].date)} (${escapeHTML(draws[i].session)}).`});
+      if(scores[i]>=4) alerts.push({type:'sim', msg:`🧬 Le dernier tirage partage ${scores[i]} pions avec le tirage du ${fmtDate(draws[i].date)} (${draws[i].session}).`});
     }
   }
   return alerts.slice(0,50);
@@ -111,22 +117,21 @@ function computeAlerts(){
 function refreshBadge(){
   const a=computeAlerts();
   const b=$('#alertBadge');
-  if(b){ b.textContent=a.length; b.style.display=a.length?'flex':'none'; }
+  if(b){ b.textContent=a.length; b.style.display=a.length?'flex':'none'; b.setAttribute('aria-label', `${a.length} alertes`); }
   return a;
 }
 
-// ---------- Dashboard ----------
 function renderDash(){
   const draws=DataLayer.cache.draws;
-  if(!draws.length){ $('#dashKpis').innerHTML='<p class="muted">Aucune donnée.</p>'; return; }
+  if(!draws.length){ $('#dashKpis').innerHTML='<p class="muted">Aucune donnée. Importez un CSV/JSON ou restaurez les données officielles.</p>'; return; }
   const st=StatsEngine.computeStats(draws,'all','win', DataLayer.cache.cfg.hot, DataLayer.cache.cfg.cold, TODAY);
   const {cls}=StatsEngine.classifyAll(st.freq, DataLayer.cache.cfg.hot, DataLayer.cache.cfg.cold);
   let hotN=0,coldN=0,neuN=0; for(let n=1;n<=90;n++){ if(cls[n]==='hot') hotN++; else if(cls[n]==='cold') coldN++; else neuN++; }
   let topN=1,maxF=-1,maxE=-1,maxEN=1; for(let n=1;n<=90;n++){ if(st.freq[n]>maxF){maxF=st.freq[n]; topN=n;} if(st.ecart[n]>maxE){maxE=st.ecart[n]; maxEN=n;} }
   const last=StatsEngine.lastDraw(draws);
   $('#dashKpis').innerHTML=`
-    <div class="kpi"><div class="lbl">Tirages totaux</div><div class="val">${draws.length}</div><div class="sub">Base historique</div></div>
-    <div class="kpi"><div class="lbl">Dernier tirage</div><div class="val" style="font-size:13px">${last?escapeHTML(fmtDate(last.date))+' · '+escapeHTML(last.session):'—'}</div><div class="sub">${last?'Win '+last.win.join('-'):''}</div></div>
+    <div class="kpi"><div class="lbl">Tirages totaux</div><div class="val">${draws.length}</div><div class="sub">Base IndexedDB</div></div>
+    <div class="kpi"><div class="lbl">Dernier tirage</div><div class="val" style="font-size:13px">${last?escapeHTML(fmtDate(last.date))+' · '+escapeHTML(last.session):'—'}</div><div class="sub">${last?'Win '+escapeHTML(last.win.join('-')):''}</div></div>
     <div class="kpi"><div class="lbl">Pion le plus chaud</div><div class="val">${ball(topN,'win')} ${topN}</div><div class="sub">${maxF} sorties Win</div></div>
     <div class="kpi"><div class="lbl">Plus grand retard</div><div class="val">${ball(maxEN,'machine')} ${maxEN}</div><div class="sub">${maxE} tirages sans sortie</div></div>
   `;
@@ -142,11 +147,18 @@ function renderDash(){
   $('#dashRecent').innerHTML=[...draws].reverse().slice(0,6).map(d=>
     `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);flex-wrap:wrap">
       <div style="min-width:110px"><b style="font-size:12.5px">${escapeHTML(fmtDate(d.date))}</b><br><span class="muted" style="font-size:11px">${escapeHTML(d.session)}</span></div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">${d.win.map(n=>ball(n,'win sm')).join('')}${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap" aria-label="Win ${escapeHTML(d.win.join(' '))}">${d.win.map(n=>ball(n,'win sm')).join('')}${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>
     </div>`).join('');
+  // transparency highlight
+  const transCard = $('#transparencyCard');
+  if(transCard){
+    transCard.innerHTML = `
+      <h4 style="margin-bottom:8px">🔎 Transparence</h4>
+      <p class="muted" style="font-size:12px">Le backtesting ci-dessous montre l'espérance réelle. Aucun système ne garantit un gain futur. Probabilité théorique ≥2/5 ≈ 23%. Le tableau ci-dessus est descriptif.</p>
+    `;
+  }
 }
 
-// ---------- History with pagination ----------
 let histPage=1; const HIST_PER_PAGE=50;
 function filteredHistory(){
   let list=[...DataLayer.cache.draws].reverse();
@@ -168,26 +180,25 @@ function renderHistory(){
   const body=$('#histBody');
   if(!body) return;
   body.innerHTML=list.map(d=>
-    `<tr><td><b>${escapeHTML(fmtDate(d.date))}</b></td><td>${escapeHTML(d.session)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap">${d.win.map(n=>ball(n,'win sm')).join('')}</div></td><td>${d.machine.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>`:'<span class="muted">—</span>'}</td><td class="muted">${sum(d.win)}</td></tr>`
+    `<tr><td><b>${escapeHTML(fmtDate(d.date))}</b></td><td>${escapeHTML(d.session)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap" aria-label="Win">${d.win.map(n=>ball(n,'win sm')).join('')}</div></td><td>${d.machine.length?`<div style="display:flex;gap:5px;flex-wrap:wrap" aria-label="Machine">${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>`:'<span class="muted">—</span>'}</td><td class="muted">${sum(d.win)}</td></tr>`
   ).join('')||`<tr><td colspan="5" class="muted">Aucun résultat.</td></tr>`;
 
-  // pagination UI
   let pag=$('#histPagination');
   if(!pag){
-    pag=document.createElement('div'); pag.id='histPagination'; pag.className='pagination';
+    pag=document.createElement('div'); pag.id='histPagination'; pag.className='pagination'; pag.setAttribute('role','navigation'); pag.setAttribute('aria-label','Pagination historique');
     body.closest('.card')?.appendChild(pag);
   }
   pag.innerHTML=`
-    <button ${histPage<=1?'disabled':''} data-p="prev">◀ Préc</button>
+    <button ${histPage<=1?'disabled':''} data-p="prev" aria-label="Page précédente">◀ Préc</button>
     ${Array.from({length:Math.min(pages,7)},(_,i)=>{
       let p;
       if(pages<=7) p=i+1;
       else if(histPage<=4) p=i+1;
       else if(histPage>=pages-3) p=pages-6+i;
       else p=histPage-3+i;
-      return `<button class="${p===histPage?'active':''}" data-p="${p}">${p}</button>`;
+      return `<button class="${p===histPage?'active':''}" data-p="${p}" aria-label="Page ${p}" ${p===histPage?'aria-current="page"':''}>${p}</button>`;
     }).join('')}
-    <button ${histPage>=pages?'disabled':''} data-p="next">Suiv ▶</button>
+    <button ${histPage>=pages?'disabled':''} data-p="next" aria-label="Page suivante">Suiv ▶</button>
   `;
   pag.querySelectorAll('button').forEach(b=> b.addEventListener('click',()=>{
     const v=b.dataset.p;
@@ -196,7 +207,6 @@ function renderHistory(){
   }));
 }
 
-// ---------- Stats ----------
 let stSort={key:'num'};
 function renderStats(){
   const draws=DataLayer.cache.draws;
@@ -221,17 +231,15 @@ function renderStats(){
   if(grid) grid.innerHTML=nums.map(n=> `<div class="cell90 ${cls[n]}"><div class="n">${n}</div><div class="f">${st.freq[n]}× · écart ${st.ecart[n]}</div></div>`).join('');
 }
 
-// ---------- Co-occurrences ----------
 function renderCooc(){
   const draws=DataLayer.cache.draws;
   const period=$('#coPeriod')?.value||'all', mode=$('#coMode')?.value||'win';
   const {pairs, triplets}=StatsEngine.computeCooc(draws, period, mode, TODAY);
   const maxP=pairs.length?pairs[0].c:1;
-  $('#pairsList').innerHTML=pairs.slice(0,10).map(p=> `<div class="pair-row"><div class="nums">${ball(p.a,'win sm')}${ball(p.b,mode==='cross'?'machine sm':'win sm')}</div><div class="pair-bar"><i style="width:${(p.c/maxP*100).toFixed(1)}%"></i></div><div class="cnt">${p.c}×</div></div>`).join('')||'<p class="muted">—</p>';
+  $('#pairsList').innerHTML=pairs.slice(0,10).map(p=> `<div class="pair-row"><div class="nums">${ball(p.a,'win sm')}${ball(p.b,mode==='cross'?'machine sm':'win sm')}</div><div class="pair-bar" role="progressbar" aria-valuenow="${p.c}" aria-valuemax="${maxP}"><i style="width:${(p.c/maxP*100).toFixed(1)}%"></i></div><div class="cnt">${p.c}×</div></div>`).join('')||'<p class="muted">—</p>';
   const maxT=triplets.length?triplets[0].count:1;
   $('#tripList').innerHTML=triplets.slice(0,5).map(t=> `<div class="pair-row"><div class="nums" style="width:auto">${ball(t.a,'win sm')}${ball(t.b,'win sm')}${ball(t.c,'win sm')}</div><div class="pair-bar"><i style="width:${(t.count/maxT*100).toFixed(1)}%"></i></div><div class="cnt">${t.count}×</div></div>`).join('')||'<p class="muted">—</p>';
 
-  // heatmap top12
   const st=StatsEngine.computeStats(draws, period, mode==='machine'?'machine':'win', DataLayer.cache.cfg.hot, DataLayer.cache.cfg.cold, TODAY);
   const top12=[...Array(90).keys()].map(i=>i+1).sort((a,b)=>st.freq[b]-st.freq[a]).slice(0,12);
   const pmap=new Map(); pairs.forEach(p=>{ pmap.set(p.a+'-'+p.b,p.c); pmap.set(p.b+'-'+p.a,p.c); });
@@ -248,7 +256,6 @@ function renderCooc(){
   const heat=$('#heatGrid'); if(heat) heat.innerHTML=html+'</div>';
 }
 
-// ---------- Similarity ----------
 function nextOf(i){
   const draws=DataLayer.cache.draws;
   const ses=draws[i].session;
@@ -279,7 +286,6 @@ async function runSimilarity(){
 
   const filters = (useSum||usePar||useTens||useGap) ? {sum:useSum, parity:usePar, tens:useTens, gap:useGap} : null;
 
-  // Try worker
   try{
     const w=getWorker();
     const promise=new Promise((resolve)=>{
@@ -293,7 +299,6 @@ async function runSimilarity(){
     processSimilarityResults(res, q, scope, limit);
   }catch(err){
     console.warn('Worker failed, fallback',err);
-    // fallback synchronous
     const qset=new Set(q);
     const res=[];
     draws.forEach((d,i)=>{
@@ -331,7 +336,6 @@ function processSimilarityResults(res, q, scope, limit){
   DataLayer.log('succès',`Recherche similitude : ${res.length} correspondances`);
 }
 
-// ---------- Backtest ----------
 function runBacktest(){
   const draws=DataLayer.cache.draws;
   const strat=$('#btStrat')?.value||'hot';
@@ -339,23 +343,50 @@ function runBacktest(){
   const stake=parseInt($('#btStake')?.value,10)||200;
   const mult={2:parseInt($('#btM2')?.value,10)||2,3:parseInt($('#btM3')?.value,10)||10,4:parseInt($('#btM4')?.value,10)||100,5:parseInt($('#btM5')?.value,10)||2000};
   try{
-    const {hitRate, net, staked, maxDD, maxLose, maxWin, equity, total}=StatsEngine.backtest(draws, strat, warm, stake, mult);
+    const result=StatsEngine.backtest(draws, strat, warm, stake, mult);
+    const transparency = generateTransparencyReport(result);
+    lastBacktestReport = transparency;
+
     $('#btKpis').innerHTML=`
-      <div class="kpi"><div class="lbl">Hit rate (≥2/5)</div><div class="val" style="color:${hitRate>=40?'var(--green)':'var(--orange)'}">${hitRate.toFixed(1)}%</div><div class="sub">${total} tirages simulés</div></div>
-      <div class="kpi"><div class="lbl">Résultat net</div><div class="val" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${net.toLocaleString('fr-FR')} F</div><div class="sub">Mises ${staked.toLocaleString('fr-FR')} F · ROI ${(staked?net/staked*100:0).toFixed(1)}%</div></div>
-      <div class="kpi"><div class="lbl">Drawdown max</div><div class="val" style="color:var(--red)">${maxDD.toLocaleString('fr-FR')} F</div><div class="sub">Série défaites max : ${maxLose}</div></div>
-      <div class="kpi"><div class="lbl">Série victoires max</div><div class="val">${maxWin}</div><div class="sub">Stabilité : ${Math.max(0,Math.round(100-Math.abs(hitRate-50)*2))}/100</div></div>
+      <div class="kpi"><div class="lbl">Hit rate (≥2/5)</div><div class="val" style="color:${result.hitRate>=40?'var(--green)':'var(--orange)'}">${result.hitRate.toFixed(1)}% <span style="font-size:11px;color:var(--muted)">vs hasard ~23%</span></div><div class="sub">${result.total} tirages · écart vs hasard ${(transparency.excessVsRandom).toFixed(1)}%</div></div>
+      <div class="kpi"><div class="lbl">Espérance nette / jeu</div><div class="val" style="color:${transparency.expectedPerGame>=0?'var(--green)':'var(--red)'}">${transparency.expectedPerGame>=0?'+':''}${transparency.expectedPerGame.toFixed(1)} F</div><div class="sub">Net ${transparency.net.toLocaleString('fr-FR')} F · ROI ${transparency.roi.toFixed(1)}%</div></div>
+      <div class="kpi"><div class="lbl">Verdict transparence</div><div class="val" style="font-size:13px">${escapeHTML(transparency.verdict)}</div><div class="sub"><span class="badge ${transparency.isProfitable?'ok':'err'}">${transparency.isProfitable?'Rentable historique':'Perdante'}</span></div></div>
+      <div class="kpi"><div class="lbl">Drawdown max</div><div class="val" style="color:var(--red)">${result.maxDD.toLocaleString('fr-FR')} F</div><div class="sub">Défaite max ${result.maxLose} · Victoire max ${result.maxWin}</div></div>
     `;
+
     if(charts.bt) charts.bt.destroy();
-    charts.bt=createEquityChart($('#chartBt'), equity, net>=0);
-    DataLayer.log('succès',`Backtest [${strat}] : hit rate ${hitRate.toFixed(1)}%, net ${net} FCFA sur ${total} tirages.`);
-    toast('Backtest terminé 🧪');
+    charts.bt=createEquityChart($('#chartBt'), result.equity, result.net>=0);
+
+    // Detailed transparency panel
+    let panel = $('#backtestTransparency');
+    if(!panel){
+      panel=document.createElement('div');
+      panel.id='backtestTransparency';
+      panel.className='card';
+      $('#view-back').appendChild(panel);
+    }
+    panel.innerHTML=`
+      <h3>🔎 Transparence — Espérance de gain</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px">
+        <div class="key-card"><h4>Rendement net</h4><div style="font-size:18px;font-weight:800;color:${transparency.net>=0?'var(--green)':'var(--red)'}">${transparency.net.toLocaleString('fr-FR')} F</div><div class="muted" style="font-size:12px">Sur ${transparency.total} tirages, mises ${transparency.staked.toLocaleString()} F</div></div>
+        <div class="key-card"><h4>Espérance / mise</h4><div style="font-size:18px;font-weight:800">${transparency.roi.toFixed(2)}% ROI</div><div class="muted" style="font-size:12px">Gain moyen par jeu ${transparency.expectedPerGame.toFixed(2)} F</div></div>
+        <div class="key-card"><h4>Comparaison hasard</h4><div style="font-size:18px;font-weight:800">${transparency.excessVsRandom>0?'+':''}${transparency.excessVsRandom.toFixed(1)}% hit rate</div><div class="muted" style="font-size:12px">Vs théorique hasard 23% pour ≥2/5</div></div>
+      </div>
+      <p class="muted" style="margin-top:12px;font-size:12px;border-top:1px solid var(--line);padding-top:10px">⚠️ ${escapeHTML(transparency.disclaimer)} Backtest sur historique uniquement.</p>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <span class="badge ${transparency.roi>0?'ok':'err'}">ROI ${transparency.roi.toFixed(1)}%</span>
+        <span class="badge ${transparency.hitRate>23?'ok':'neutral'}">Hit ${transparency.hitRate.toFixed(1)}% vs 23% hasard</span>
+        <span class="badge warn">Drawdown ${transparency.maxDD.toLocaleString()} F</span>
+      </div>
+    `;
+
+    DataLayer.log('succès',`Backtest [${strat}] : hit ${result.hitRate.toFixed(1)}% (${transparency.excessVsRandom>0?'+':''}${transparency.excessVsRandom.toFixed(1)} vs hasard), net ${result.net} F ROI ${transparency.roi.toFixed(1)}%`);
+    toast(`Backtest terminé — ${transparency.verdict} — ROI ${transparency.roi.toFixed(1)}%`, transparency.isProfitable?'success':'info');
   }catch(e){
     toast(e.message||'Erreur backtest','error');
   }
 }
 
-// ---------- Systems ----------
 function syncSys(){
   $$('#sysGrid .num-cell').forEach(b=> b.classList.toggle('on', sysSel.has(+b.dataset.n)));
   const arr=[...sysSel].sort((a,b)=>a-b);
@@ -365,7 +396,6 @@ function syncSys(){
 }
 function renderSys(){ syncSys(); }
 
-// ---------- Pred ----------
 function generateGrids(){
   const draws=DataLayer.cache.draws;
   const period=$('#prPeriod')?.value||'all';
@@ -393,7 +423,6 @@ function generateGrids(){
     if($('#chkKeys')?.checked && keyNums.has(n)) s+=1.6;
     if($('#chkMarkov')?.checked) s+=markovScores[n]*2;
     if($('#chkWeighted')?.checked) s+=weightedScores[n]*1.5;
-    // Bonus for pairs if checked
     if($('#chkPairs')?.checked){
       const {pairs}=StatsEngine.computeCooc(draws, period,'win',TODAY);
       const pairBonus=pairs.filter(p=>p.a===n||p.b===n).slice(0,3).reduce((a,p)=>a+p.c*0.01,0);
@@ -430,17 +459,15 @@ function renderPred(){
   const wOut=$('#weightedOut'); if(wOut) wOut.innerHTML=weighted.map(w=> `<div style="display:inline-flex;align-items:center;gap:6px;margin:4px">${ball(w.num,'win sm')}<span class="muted" style="font-size:11px">${w.score.toFixed(2)}</span></div>`).join('');
 }
 
-// ---------- Alerts & Sync ----------
 function renderAlerts(){
   const a=refreshBadge();
   const countEl=$('#alertCount'); if(countEl) countEl.textContent=`${a.length} alerte(s) active(s)`;
   const listEl=$('#alertList');
   if(listEl) listEl.innerHTML=a.map(x=> `<div class="alert-item"><div class="ic" style="background:${x.type==='ecart'?'rgba(56,189,248,.15)':'rgba(246,178,27,.15)'}">${x.type==='ecart'?'⏰':'🧬'}</div><div style="font-size:13px;line-height:1.5">${escapeHTML(x.msg)}</div></div>`).join('')||'<p class="muted">Aucune alerte.</p>';
   const last=StatsEngine.lastDraw(DataLayer.cache.draws);
-  const syncInfo=$('#syncInfo'); if(syncInfo) syncInfo.textContent=`Base locale : ${DataLayer.cache.draws.length} tirages · dernier : ${last? escapeHTML(fmtDate(last.date))+' ('+escapeHTML(last.session)+')' : '—'}.`;
+  const syncInfo=$('#syncInfo'); if(syncInfo) syncInfo.textContent=`Base locale : ${DataLayer.cache.draws.length} tirages · dernier : ${last? escapeHTML(fmtDate(last.date))+' ('+escapeHTML(last.session)+')' : '—'}. Mode hors-ligne PWA actif.`;
 }
 
-// ---------- Logs ----------
 function renderLogs(){
   const LBL={succès:'ok',erreur:'err',info:'warn',export:'ok'};
   const body=$('#logsBody');
@@ -448,7 +475,6 @@ function renderLogs(){
   body.innerHTML=DataLayer.cache.logs.map(l=> `<tr><td class="muted">${escapeHTML(l.ts)}</td><td><span class="badge ${LBL[l.type]||'warn'}">${escapeHTML(l.type)}</span></td><td>${escapeHTML(l.msg)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">Vide.</td></tr>';
 }
 
-// ---------- File Import ----------
 async function handleFiles(files){
   for(const file of files){
     const text=await file.text();
@@ -458,37 +484,40 @@ async function handleFiles(files){
     } else if(file.name.endsWith('.json')){
       try{
         const parsed=JSON.parse(text);
-        // support array or object with draws
         if(Array.isArray(parsed)) data=parsed;
         else if(parsed.draws) data=parsed.draws;
         else data=[parsed];
-      }catch(e){ toast('Fichier JSON invalide','error'); continue; }
+      }catch(e){ toast('Fichier JSON invalide — schéma attendu tableau de tirages','error'); continue; }
     } else { toast('Format non supporté (CSV ou JSON)','error'); continue; }
     if(data.length>0){
       $('#importProgress').style.display='block';
-      const result=await DataLayer.importData(data, (prog,imp,skip)=>{
+      const result=await DataLayer.importData(data, (prog,imp,skip,invalid)=>{
         const pf=$('#progressFill'); if(pf){ pf.style.width=prog+'%'; pf.textContent=prog+'%'; }
-        const st=$('#importStatus'); if(st) st.textContent=`${imp} importés, ${skip} doublons ignorés...`;
+        const st=$('#importStatus'); if(st) st.textContent=`${imp} importés, ${skip} rejetés/doublons...${invalid && invalid.length? ` (${invalid.length} invalides)` : ''}`;
       });
       updateStatsUI(); invalidateCache(); refreshBadge();
-      const stEl=$('#importStatus'); if(stEl) stEl.textContent=`✅ Terminé : ${result.imported} importés, ${result.skipped} doublons`;
-      toast(`✅ ${result.imported} tirages importés depuis ${file.name}`);
+      const stEl=$('#importStatus'); if(stEl) stEl.textContent=`✅ Terminé : ${result.imported} importés, ${result.skipped} rejetés`;
+      if(result.invalid && result.invalid.length){
+        toast(`✅ ${result.imported} importés, ${result.invalid.length} invalides rejetés (sécurité)`, result.imported?'success':'error');
+        console.warn('Invalid entries:', result.invalid.slice(0,10));
+      } else {
+        toast(`✅ ${result.imported} tirages importés depuis ${escapeHTML(file.name)}`);
+      }
     } else {
-      toast('Aucune donnée valide trouvée','error');
+      toast('Aucune donnée valide trouvée — vérifiez schéma','error');
     }
   }
 }
 
-// ---------- Build inputs ----------
 function buildInputs(){
   const w=$('#winInputs'), m=$('#machInputs');
   if(!w||!m) return;
   w.innerHTML=''; m.innerHTML='';
   for(let i=1;i<=5;i++){
-    w.insertAdjacentHTML('beforeend',`<div class="fld"><label>W${i}</label><input type="number" min="1" max="90" class="input num-in" id="w${i}" aria-label="Win ${i}"></div>`);
-    m.insertAdjacentHTML('beforeend',`<div class="fld"><label>M${i}</label><input type="number" min="1" max="90" class="input num-in" id="m${i}" aria-label="Machine ${i}"></div>`);
+    w.insertAdjacentHTML('beforeend',`<div class="fld"><label for="w${i}">W${i}</label><input type="number" min="1" max="90" class="input num-in" id="w${i}" aria-label="Numéro gagnant ${i}"></div>`);
+    m.insertAdjacentHTML('beforeend',`<div class="fld"><label for="m${i}">M${i}</label><input type="number" min="1" max="90" class="input num-in" id="m${i}" aria-label="Numéro machine ${i}"></div>`);
   }
-  const sessions=[...new Set([...CONFIG.SESSION_LIST, ...REAL_DATA.map(r=>r[1])])].sort();
+  const sessions=[...new Set([...CONFIG.SESSION_LIST])].sort();
   const dfSession=$('#dfSession'); if(dfSession) dfSession.innerHTML=sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
   const fSession=$('#fSession'); if(fSession) fSession.innerHTML='<option value="">Toutes</option>'+sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
 }
@@ -499,15 +528,13 @@ function buildSysGrid(){
   for(let n=1;n<=90;n++){
     const b=document.createElement('button');
     b.type='button'; b.className='num-cell'; b.textContent=n; b.dataset.n=n;
-    b.setAttribute('aria-label', `Pion ${n}`);
+    b.setAttribute('aria-label', `Pion ${n}, cliquer pour sélectionner`);
     b.addEventListener('click',()=>{ if(sysSel.has(n)) sysSel.delete(n); else sysSel.add(n); syncSys(); });
     g.appendChild(b);
   }
 }
 
-// ---------- Event wiring ----------
 function wireEvents(){
-  // nav
   $$('.nav-btn').forEach(b=> b.addEventListener('click',()=> go(b.dataset.view)));
   const topDate=$('#topDate'); if(topDate) topDate.textContent=TODAY.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const roleSel=$('#roleSel');
@@ -519,10 +546,10 @@ function wireEvents(){
     toast('Session '+(admin?'Administrateur':'Analyste')+' active','info');
   });
 
-  // import zone
   const dropZone=$('#dropZone'), fileInput=$('#importFile');
   if(dropZone && fileInput){
     dropZone.addEventListener('click',()=> fileInput.click());
+    dropZone.addEventListener('keydown',(e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); fileInput.click(); } });
     dropZone.addEventListener('dragover',(e)=>{ e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave',()=> dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop',(e)=>{ e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
@@ -536,11 +563,24 @@ function wireEvents(){
   });
   const sampleBtn=$('#btnLoadSample');
   if(sampleBtn) sampleBtn.addEventListener('click', async ()=>{
+    // Load from public/data/real_data.json + generate demo
+    try{
+      const res = await fetch(CONFIG.DATA_URL);
+      if(res.ok){
+        const json = await res.json();
+        $('#importProgress').style.display='block';
+        const result=await DataLayer.importData(json, (p,i,s)=>{ const pf=$('#progressFill'); if(pf){ pf.style.width=p+'%'; pf.textContent=p+'%'; } const st=$('#importStatus'); if(st) st.textContent=`${i} importés...`; });
+        updateStatsUI(); invalidateCache(); refreshBadge();
+        toast(`✅ Données réelles chargées : ${result.imported} tirages`);
+        return;
+      }
+    }catch(e){ console.warn(e); }
+    // fallback generate random demo
     const sampleData=[]; const sessions=['Midi','Soir','Special','Digital 21h','Digital 22h'];
     for(let year=2012;year<=2026;year++){
       for(let month=1;month<=12;month++){
         const daysInMonth=new Date(year,month,0).getDate();
-        for(let day=1;day<=daysInMonth;day+=3){
+        for(let day=1;day<=daysInMonth;day+=7){
           const session=sessions[Math.floor(Math.random()*sessions.length)];
           const win=[]; while(win.length<5){ const n=Math.floor(Math.random()*90)+1; if(!win.includes(n)) win.push(n); }
           const machine=[]; while(machine.length<5){ const n=Math.floor(Math.random()*90)+1; if(!machine.includes(n)) machine.push(n); }
@@ -568,7 +608,6 @@ function wireEvents(){
     await DataLayer.clearDraws(); updateStatsUI(); invalidateCache(); toast('Base vidée','info');
   });
 
-  // draw form
   const dfDate=$('#dfDate'); if(dfDate) dfDate.value=iso(TODAY);
   const noMachChk=$('#dfNoMachine');
   if(noMachChk) noMachChk.addEventListener('change',e=>{
@@ -582,8 +621,6 @@ function wireEvents(){
     e.preventDefault();
     const errs=[];
     const date=$('#dfDate')?.value, session=$('#dfSession')?.value, noM=$('#dfNoMachine')?.checked;
-    if(!date) errs.push('Date obligatoire.');
-    if(date && date>iso(TODAY)) errs.push('Date future interdite.');
     function readBlock(pre, skip){
       const arr=[];
       for(let i=1;i<=5;i++){
@@ -597,20 +634,25 @@ function wireEvents(){
       return arr.sort((a,b)=>a-b);
     }
     const win=readBlock('w',false), mach=readBlock('m',noM);
-    if(!noM && mach.length!==5) errs.push('Bloc Machine incomplet (ou cochez « sans Machine »).');
+    // Validate via validator
+    const candidate={date, session, win, machine: noM?[]:mach};
+    const v=validateDraw(candidate);
+    if(!v.ok) errs.push(...v.errors);
     if(date && DataLayer.cache.draws.some(d=>d.date===date && d.session===session)) errs.push(`Tirage « ${session} » déjà présent le ${fmtDate(date)}.`);
     const errBox=$('#dfErr'); if(errBox) errBox.innerHTML=errs.map(m=>`<div>⛔ ${escapeHTML(m)}</div>`).join('');
     if(errs.length){ errs.forEach(m=>DataLayer.log('erreur',m)); toast('Validation refusée.','error'); return; }
-    const newDraw={id:Date.now(), date, session, win, machine:mach};
-    await DataLayer.putDraw(newDraw);
-    updateStatsUI(); invalidateCache(); refreshBadge();
-    DataLayer.log('succès',`Tirage ${session} du ${fmtDate(date)} enregistré — Win [${win.join(' ')}]`);
-    toast('Tirage enregistré ✅');
-    if(clearFormBtn) clearFormBtn.click();
-    renderHistory();
+    try{
+      await DataLayer.putDraw({...v.sanitized, id:Date.now()});
+      updateStatsUI(); invalidateCache(); refreshBadge();
+      DataLayer.log('succès',`Tirage ${session} du ${fmtDate(date)} enregistré — Win [${win.join(' ')}]`);
+      toast('Tirage enregistré ✅');
+      if(clearFormBtn) clearFormBtn.click();
+      renderHistory();
+    }catch(err){
+      toast(err.message,'error');
+    }
   });
 
-  // filters
   ['fFrom','fTo','fNum','fScope','fSession'].forEach(id=>{
     const el=$('#'+id); if(el) el.addEventListener('change',()=>{ histPage=1; renderHistory(); });
   });
@@ -623,7 +665,6 @@ function wireEvents(){
     toast('Historique exporté ⬇');
   });
 
-  // stats
   const stApply=$('#stApply');
   if(stApply) stApply.addEventListener('click', async ()=>{
     DataLayer.cache.cfg.hot=Math.max(0, parseInt($('#stHot')?.value,10)||0);
@@ -634,19 +675,14 @@ function wireEvents(){
     const el=$('#'+id); if(el) el.addEventListener('click',()=>{ stSort={key}; renderStats(); });
   });
 
-  // cooc
   ['coPeriod','coMode'].forEach(id=>{ const el=$('#'+id); if(el) el.addEventListener('change', renderCooc); });
 
-  // sim
   const simRef=$('#simRef'); if(simRef) simRef.addEventListener('change',()=>{ const man=$('#simManual'); if(man) man.style.display=simRef.value==='manual'?'flex':'none'; });
   const simRun=$('#simRun'); if(simRun) simRun.addEventListener('click', runSimilarity);
-  // Also debounce auto-search on filter change
   ['simScope','simMin','simLimit','simSum','simParity','simTens','simGap'].forEach(id=>{ const el=$('#'+id); if(el) el.addEventListener('change', debounce(()=>{ if($('#simResults')?.innerHTML.includes('sim-item')) runSimilarity(); },300)); });
 
-  // backtest
   const btRun=$('#btRun'); if(btRun) btRun.addEventListener('click', runBacktest);
 
-  // sys
   buildSysGrid();
   const sysClear=$('#sysClear'); if(sysClear) sysClear.addEventListener('click',()=>{ sysSel.clear(); syncSys(); });
   const sysImport=$('#sysImport'); if(sysImport) sysImport.addEventListener('click',()=>{ if(!lastPred.length){ toast('Générez d\'abord une prédiction','error'); return; } lastPred[0].forEach(n=>sysSel.add(n)); syncSys(); toast('Prédiction importée'); });
@@ -663,35 +699,32 @@ function wireEvents(){
     const b=bases.length, rest=arr.filter(x=>!bases.includes(x)), k=5-b;
     const combos=C(rest.length,k);
     if(combos>CONFIG.MAX_TICKET_COMBOS){
-      if(!confirm(`⚠️ ${combos.toLocaleString('fr-FR')} combinaisons — coût ${(combos*stake).toLocaleString()} F. Confirmer ? Gros volume peut ralentir le navigateur.`)) return;
+      if(!confirm(`⚠️ ${combos.toLocaleString('fr-FR')} combinaisons — coût ${(combos*stake).toLocaleString()} F. Confirmer ?`)) return;
     }
-    // generate with iterator to avoid OOM
     lastSysGrids=[];
     let count=0;
     for(const c of combsIter(rest,k)){
-      if(count<100000){ // cap storage to 100k
+      if(count<100000){
         lastSysGrids.push([...bases,...c].sort((a,b)=>a-b));
       }
       count++;
       if(count>=combos) break;
-      if(count>200000) break; // safety
+      if(count>200000) break;
     }
-    const effectiveCombos=combos;
-    const cost=effectiveCombos*stake;
+    const cost=combos*stake;
     const preview=lastSysGrids.slice(0,CONFIG.MAX_TICKET_PREVIEW);
     const out=$('#sysOut');
     if(out) out.innerHTML=`
       <div class="kpis" style="margin-bottom:12px">
-        <div class="kpi"><div class="lbl">Formule</div><div class="val" style="font-size:16px">C(${rest.length},${k}) = ${effectiveCombos.toLocaleString('fr-FR')}</div><div class="sub">${mode==='reduit'?`Champ réduit · ${b} base(s) [${bases.join(', ')}]`:'Permutation complète'}</div></div>
-        <div class="kpi"><div class="lbl">Coût total</div><div class="val" style="color:var(--orange)">${cost.toLocaleString('fr-FR')} F</div><div class="sub">${effectiveCombos} grilles × ${stake} F</div></div>
-        <div class="kpi"><div class="lbl">Gain max (5/5)</div><div class="val" style="color:var(--green)">${(2000*stake).toLocaleString('fr-FR')} F</div><div class="sub">×2000 indicative</div></div>
+        <div class="kpi"><div class="lbl">Formule</div><div class="val" style="font-size:16px">C(${rest.length},${k}) = ${combos.toLocaleString('fr-FR')}</div><div class="sub">${mode==='reduit'?`Champ réduit · ${b} base(s) [${bases.join(', ')}]`:'Permutation complète'}</div></div>
+        <div class="kpi"><div class="lbl">Coût total</div><div class="val" style="color:var(--orange)">${cost.toLocaleString('fr-FR')} F</div><div class="sub">${combos} grilles × ${stake} F</div></div>
+        <div class="kpi"><div class="lbl">Espérance théorique</div><div class="val" style="font-size:14px">ROI théorique -${(100- (2/2000*100)).toFixed(0)}%</div><div class="sub">Jeu aléatoire perdant par nature — voir backtest</div></div>
       </div>
-      <p class="muted" style="margin:10px 0 6px">Aperçu (${preview.length} / ${effectiveCombos}) :</p>
-      <div class="ticket">${preview.map((g,i)=> String(i+1).padStart(3,'0')+'  '+g.map(x=>String(x).padStart(2,'0')).join(' - ')).join('\n')}${effectiveCombos>CONFIG.MAX_TICKET_PREVIEW?'\n…':''}</div>
-      ${effectiveCombos>100000?`<p class="muted" style="margin-top:8px">⚠️ Affichage limité à 100 000 combinaisons pour éviter le gel du navigateur. Export CSV contiendra jusqu'à 100k.</p>`:''}
+      <p class="muted" style="margin:10px 0 6px">Aperçu (${preview.length} / ${combos}) :</p>
+      <div class="ticket">${preview.map((g,i)=> String(i+1).padStart(3,'0')+'  '+g.map(x=>String(x).padStart(2,'0')).join(' - ')).join('\n')}${combos>CONFIG.MAX_TICKET_PREVIEW?'\n…':''}</div>
     `;
-    DataLayer.log('succès',`Système calculé : ${effectiveCombos} combinaisons, coût ${cost} FCFA.`);
-    toast(`${effectiveCombos.toLocaleString('fr-FR')} combinaisons 🎟`);
+    DataLayer.log('succès',`Système calculé : ${combos} combinaisons, coût ${cost} FCFA.`);
+    toast(`${combos.toLocaleString('fr-FR')} combinaisons 🎟`);
   });
   const sysCsv=$('#sysCsv');
   if(sysCsv) sysCsv.addEventListener('click',()=>{
@@ -700,7 +733,6 @@ function wireEvents(){
     toast('Ticket exporté ⬇');
   });
 
-  // pred
   const btnGen=$('#btnGen');
   if(btnGen) btnGen.addEventListener('click',()=>{
     const grids=generateGrids();
@@ -714,58 +746,54 @@ function wireEvents(){
     toast('Export CSV ⬇');
   });
 
-  // alerts & sync
   const pasteToggle=$('#pasteToggle'); if(pasteToggle) pasteToggle.addEventListener('click',()=>{ const p=$('#pastePanel'); if(p) p.style.display=p.style.display==='none'?'block':'none'; });
   const parseBtn=$('#parseBtn');
   if(parseBtn) parseBtn.addEventListener('click', async ()=>{
     const txt=$('#pasteArea')?.value||'';
     if(!txt.trim()){ toast('Collez d\'abord du texte','error'); return; }
     const parsed=parsePasteText(txt);
-    if(!parsed.length){ toast('Aucun tirage détecté — vérifiez le format','error'); return; }
+    if(!parsed.length){ toast('Aucun tirage détecté','error'); return; }
     const result=await DataLayer.importData(parsed);
-    updateStatsUI(); invalidateCache(); refreshBadge(); renderHistory(); toast(`✅ ${result.imported} tirages intégrés depuis le presse-papier`);
+    updateStatsUI(); invalidateCache(); refreshBadge(); renderHistory();
+    toast(`✅ ${result.imported} intégrés, ${result.skipped} rejetés`);
   });
   const syncBtn=$('#syncBtn');
   if(syncBtn) syncBtn.addEventListener('click', async ()=>{
-    toast('Connexion au flux officiel…','info');
-    try{
-      const r=await fetch('https://lotobonheur.ci/resultats',{mode:'cors'});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const html=await r.text();
-      const draws=parsePasteText(html);
-      if(draws.length){
-        const res=await DataLayer.importData(draws);
-        updateStatsUI(); invalidateCache(); refreshBadge();
-        toast(`✅ Synchro réussie : ${res.imported} nouveaux tirages`);
-      } else {
-        toast('Page récupérée mais aucun tirage détecté — utilisez le collage manuel','info');
-        const pp=$('#pastePanel'); if(pp) pp.style.display='block';
-      }
-    }catch(e){
-      console.warn(e);
-      toast('Flux direct bloqué par CORS. Utilisez l\'import de fichiers ou le collage manuel.','error');
+    toast('Connexion via proxy...','info');
+    syncBtn.disabled=true;
+    const result = await syncOfficial();
+    syncBtn.disabled=false;
+    if(result.ok){
+      const importRes = await DataLayer.importData(result.draws);
+      updateStatsUI(); invalidateCache(); refreshBadge(); renderHistory();
+      toast(`✅ Synchro ${result.source}: ${importRes.imported} nouveaux`, 'success');
+      DataLayer.log('succès', `Sync via ${result.source} : ${importRes.imported} nouveaux`);
+    } else {
+      console.warn('sync attempts', result.attempts);
+      toast(`Échec CORS — proxy indisponible. Utilisez import fichier/collage. Détails console.`,'error');
       const pp=$('#pastePanel'); if(pp) pp.style.display='block';
+      DataLayer.log('erreur', `Sync échouée : ${result.attempts.map(a=>a.endpoint+' '+a.error).join(' | ')}`);
     }
   });
 
-  // logs
   const clearLogs=$('#btnClearLogs');
   if(clearLogs) clearLogs.addEventListener('click', async ()=>{ await DataLayer.clearLogs(); renderLogs(); toast('Journal vidé','info'); });
   const resetData=$('#btnResetData');
   if(resetData) resetData.addEventListener('click', async ()=>{
-    if(!confirm('Restaurer les données officielles ?')) return;
-    const p=DataLayer.parseReal(REAL_DATA);
-    await DataLayer.clearDraws(); await DataLayer.bulkPutDraws(p.draws);
-    updateStatsUI(); invalidateCache(); refreshBadge(); DataLayer.log('info','Données officielles restaurées.'); toast('Données restaurées ⟲','info'); go('dash');
+    if(!confirm('Restaurer les données officielles depuis /data/real_data.json ?')) return;
+    const {draws} = await DataLayer.loadRealDataJson();
+    await DataLayer.clearDraws(); await DataLayer.bulkPutDraws(draws);
+    updateStatsUI(); invalidateCache(); refreshBadge(); DataLayer.log('info','Données officielles restaurées depuis JSON.'); toast('Données restaurées ⟲','info'); go('dash');
   });
 }
 
-// ---------- PWA ----------
 function initPWA(){
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').then(r=> console.log('SW ok',r.scope)).catch(err=> console.log('SW fail',err));
-    // Also try /public/sw.js for dev
-    navigator.serviceWorker.register('/public/sw.js').catch(()=>{});
+    navigator.serviceWorker.register('/sw.js').then(r=> {
+      console.log('SW ok',r.scope);
+      // check for updates
+      r.addEventListener('updatefound', ()=> console.log('SW update found'));
+    }).catch(err=> console.log('SW fail',err));
   }
   let deferredPrompt;
   window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; const btn=$('#pwaInstall'); if(btn) btn.style.display='block'; });
@@ -773,18 +801,26 @@ function initPWA(){
   if(installBtn) installBtn.addEventListener('click', async ()=>{
     if(deferredPrompt){ deferredPrompt.prompt(); const {outcome}=await deferredPrompt.userChoice; if(outcome==='accepted'){ installBtn.style.display='none'; } deferredPrompt=null; }
   });
+  // offline indicator
+  window.addEventListener('online',()=> toast('Connexion rétablie — mode online','info'));
+  window.addEventListener('offline',()=> toast('Hors-ligne — PWA cache actif','info'));
 }
 
-// ---------- Init ----------
 async function init(){
   buildInputs();
   buildSysGrid();
   wireEvents();
   await DataLayer.init();
   if(!DataLayer.cache.draws.length){
-    const parsed=DataLayer.parseReal(REAL_DATA);
-    await DataLayer.bulkPutDraws(parsed.draws);
-    await DataLayer.log('info',`Import officiel : ${parsed.draws.length} tirages.`);
+    // try load JSON first
+    const {draws} = await DataLayer.loadRealDataJson();
+    if(draws.length){
+      await DataLayer.bulkPutDraws(draws);
+      await DataLayer.log('info',`Import officiel JSON : ${draws.length} tirages.`);
+    } else {
+      const fallback = DataLayer.parseRealFallback();
+      await DataLayer.bulkPutDraws(fallback.draws);
+    }
   }
   DataLayer.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
   const hotEl=$('#stHot'), coldEl=$('#stCold');
@@ -792,9 +828,19 @@ async function init(){
   if(coldEl) coldEl.value=DataLayer.cache.cfg.cold;
   updateStatsUI();
   const bootAlerts=refreshBadge();
-  if(bootAlerts.length) setTimeout(()=> toast(`${bootAlerts.length} alerte(s) active(s) — voir Alertes & Sync 🔔`,'info'),800);
+  if(bootAlerts.length) setTimeout(()=> toast(`${bootAlerts.length} alerte(s) — voir Alertes & Sync 🔔`,'info'),800);
   renderDash();
   initPWA();
+
+  // a11y live region
+  if(!$('#a11yLive')){
+    const live=document.createElement('div');
+    live.id='a11yLive';
+    live.setAttribute('aria-live','polite');
+    live.setAttribute('aria-atomic','true');
+    live.style.position='absolute'; live.style.left='-10000px'; live.style.top='auto'; live.style.width='1px'; live.style.height='1px'; live.style.overflow='hidden';
+    document.body.appendChild(live);
+  }
 }
 
 init();

@@ -8,6 +8,21 @@ export default defineConfig({
     hmr: {
       clientPort: 443,
     },
+    proxy: {
+      // Proxy pour contourner CORS vers lotobonheur.ci
+      '/lonaci-proxy': {
+        target: 'https://lotobonheur.ci',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/lonaci-proxy/, '/resultats'),
+        secure: false,
+      },
+      '/api/lonaci': {
+        target: 'https://lotobonheur.ci',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/lonaci/, '/resultats'),
+        secure: false,
+      },
+    },
   },
   preview: {
     host: '0.0.0.0',

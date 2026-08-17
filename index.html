@@ -22,23 +22,24 @@
 <link rel="stylesheet" href="/src/css/main.css">
 </head>
 <body>
+<a href="#mainContent" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">Aller au contenu principal</a>
 <div class="app">
   <aside class="sidebar" aria-label="Navigation principale">
     <div class="brand">
       <div class="brand-ball" aria-hidden="true">5/90</div>
-      <div><b>Loto Bonheur</b><span>Analytics Pro v2 · LONACI</span></div>
+      <div><b>Loto Bonheur</b><span>Analytics Pro v2.1 · LONACI</span></div>
     </div>
-    <button class="nav-btn active" data-view="dash" aria-current="page">▦ Tableau de bord</button>
-    <button class="nav-btn" data-view="data">📥 Données historiques</button>
-    <button class="nav-btn" data-view="draws">🗂 Gestion des tirages</button>
-    <button class="nav-btn" data-view="stats">📊 Statistiques</button>
-    <button class="nav-btn" data-view="cooc">🔗 Co-occurrences</button>
-    <button class="nav-btn" data-view="sim">🧬 Similitude avancée</button>
-    <button class="nav-btn" data-view="back">🧪 Backtesting</button>
-    <button class="nav-btn" data-view="sys">🎲 Systèmes & Mises</button>
-    <button class="nav-btn" data-view="pred">🔑 Clefs & Prédictions</button>
-    <button class="nav-btn" data-view="alert">🔔 Alertes & Sync <span class="ncnt" id="alertBadge" aria-label="alertes">0</span></button>
-    <button class="nav-btn" data-view="logs">📄 Journal des logs</button>
+    <button class="nav-btn active" data-view="dash" aria-current="page" aria-label="Tableau de bord, KPIs et graphiques">▦ Tableau de bord</button>
+    <button class="nav-btn" data-view="data" aria-label="Données historiques, import CSV JSON">📥 Données historiques</button>
+    <button class="nav-btn" data-view="draws" aria-label="Gestion des tirages, saisie manuelle">🗂 Gestion des tirages</button>
+    <button class="nav-btn" data-view="stats" aria-label="Statistiques fréquence chaud froid écarts">📊 Statistiques</button>
+    <button class="nav-btn" data-view="cooc" aria-label="Co-occurrences paires triplets matrice chaleur">🔗 Co-occurrences</button>
+    <button class="nav-btn" data-view="sim" aria-label="Similitude avancée recherche tirages similaires">🧬 Similitude avancée</button>
+    <button class="nav-btn" data-view="back" aria-label="Backtesting transparence espérance gain">🧪 Backtesting</button>
+    <button class="nav-btn" data-view="sys" aria-label="Systèmes et mises combinatoire coûts">🎲 Systèmes & Mises</button>
+    <button class="nav-btn" data-view="pred" aria-label="Clefs et prédictions Markov">🔑 Clefs & Prédictions</button>
+    <button class="nav-btn" data-view="alert" aria-label="Alertes et synchronisation automatique">🔔 Alertes & Sync <span class="ncnt" id="alertBadge" aria-label="nombre alertes">0</span></button>
+    <button class="nav-btn" data-view="logs" aria-label="Journal des logs">📄 Journal des logs</button>
     <div class="side-foot">
       <span>Base : <b id="dataCount" style="color:var(--green)">0</b> tirages<br>
       <span id="dataPeriod">—</span><br>
@@ -48,25 +49,26 @@
     </div>
   </aside>
 
-  <main>
+  <main id="mainContent">
     <div class="topbar">
       <h1 id="topTitle">Tableau de bord</h1>
       <div class="top-right">
-        <span class="src-chip" title="Source">✅ Données IndexedDB + localStorage fallback</span>
-        <select class="role-sel" id="roleSel" aria-label="Rôle"><option value="admin">👑 Administrateur</option><option value="analyst">📊 Analyste / Joueur</option></select>
-        <span class="date-chip" id="topDate"></span>
+        <span class="src-chip" title="Source: IndexedDB avec fallback localStorage, données chargées via /data/real_data.json">✅ Données IndexedDB + JSON externe</span>
+        <select class="role-sel" id="roleSel" aria-label="Sélection rôle administrateur ou analyste"><option value="admin">👑 Administrateur</option><option value="analyst">📊 Analyste / Joueur</option></select>
+        <span class="date-chip" id="topDate" aria-live="polite"></span>
       </div>
     </div>
 
     <!-- DASHBOARD -->
     <section class="view active" id="view-dash" aria-labelledby="topTitle">
-      <div class="kpis" id="dashKpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="kpis" id="dashKpis"><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div></div>
+      <div class="card" id="transparencyCard" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)"><p class="muted" style="font-size:12px">🔎 <b>Transparence:</b> Le backtesting affiche l'espérance réelle (ROI, net). Le Loto est aléatoire — aucune prédiction garantie. Jouez responsable.</p></div>
       <div class="grid-2">
-        <div class="card"><h3>Top 10 des pions <span class="hint">Win · période disponible</span></h3><canvas id="chartTop" height="220" aria-label="Top pions"></canvas></div>
-        <div class="card"><h3>Classification dynamique</h3><canvas id="chartClass" height="220"></canvas></div>
+        <div class="card"><h3>Top 10 des pions <span class="hint">Win · période disponible</span></h3><canvas id="chartTop" height="220" role="img" aria-label="Graphique barres top 10 pions les plus fréquents Win"></canvas><p id="chartTopDesc" class="muted" style="font-size:11px;margin-top:6px">Alternative textuelle: Les 3 premiers pions chauds sont surlignés en doré, fréquence affichée en nombre de sorties.</p></div>
+        <div class="card"><h3>Classification dynamique</h3><canvas id="chartClass" height="220" role="img" aria-label="Graphique doughnut répartition chauds neutres froids"></canvas></div>
       </div>
       <div class="grid-2">
-        <div class="card"><h3>Tirages enregistrés par jour</h3><canvas id="chartMonths" height="200"></canvas></div>
+        <div class="card"><h3>Tirages enregistrés par jour</h3><canvas id="chartMonths" height="200" role="img" aria-label="Graphique ligne tirages par jour sur 30 jours"></canvas></div>
         <div class="card"><h3>Derniers tirages officiels</h3><div id="dashRecent"></div></div>
       </div>
     </section>
@@ -74,11 +76,11 @@
     <!-- DONNÉES HISTORIQUES -->
     <section class="view" id="view-data">
       <div class="card">
-        <h3>📥 Import massif de données historiques <span class="hint">17/07/2012 → Aujourd'hui — IndexedDB supporte 50k+ tirages</span></h3>
-        <div class="import-zone" id="dropZone" tabindex="0" role="button" aria-label="Zone d'import">
+        <h3>📥 Import massif de données historiques <span class="hint">17/07/2012 → Aujourd'hui — IndexedDB 50k+ + JSON externe /data/real_data.json + validation stricte</span></h3>
+        <div class="import-zone" id="dropZone" tabindex="0" role="button" aria-label="Zone d'import fichiers CSV JSON, glissez déposez ou appuyez Entrée">
           <div style="font-size:40px;margin-bottom:10px">📁</div>
           <p style="color:var(--gold2);font-weight:600;margin-bottom:8px">Glissez-déposez vos fichiers CSV ou JSON ici</p>
-          <p class="muted">ou cliquez pour sélectionner — supporte champs guillemetés</p>
+          <p class="muted">ou cliquez pour sélectionner — supporte champs guillemetés, validation schéma stricte anti-XSS</p>
           <input type="file" id="importFile" accept=".csv,.json" style="display:none" multiple>
         </div>
         <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
@@ -238,10 +240,11 @@ Améliorations v2 :
     <!-- BACKTEST -->
     <section class="view" id="view-back">
       <div class="card">
-        <h3>Configuration du backtest <span class="hint">Optimisé O(N) au lieu de O(N²)</span></h3>
+        <h3>Configuration du backtest <span class="hint">Optimisé O(N) + transparence espérance</span></h3>
+        <p class="muted" style="font-size:12px;margin-bottom:12px">Le backtesting teste rétrospectivement une stratégie sur l'historique et affiche le <b>rendement réel net</b> (ROI, espérance par jeu) vs hasard théorique (23% de hit ≥2/5). C'est l'outil de transparence central.</p>
         <div class="ctrl">
           <div class="fld"><label for="btStrat">Stratégie</label><select class="input" id="btStrat"><option value="hot">Pions chauds (top 5 fréquence)</option><option value="ecart">Pions en retard (top 5 écarts)</option><option value="mix">Mixte (3 chauds + 2 retards)</option><option value="sim">Similitude (≥3 pions communs → N+1)</option><option value="markov">Markov (transitions probables)</option><option value="weighted">N+1 pondéré (decay temporel)</option></select></div>
-          <div class="fld"><label for="btWarm">Warmup min.</label><input type="number" class="input num-in" id="btWarm" value="30"></div>
+          <div class="fld"><label for="btWarm">Warmup min.</label><input type="number" class="input num-in" id="btWarm" value="30" aria-label="Warmup minimum"></div>
           <div class="fld"><label for="btStake">Mise unitaire</label><select class="input" id="btStake"><option>100</option><option selected>200</option><option>500</option></select></div>
         </div>
         <div class="ctrl" style="margin-top:12px">
@@ -253,7 +256,7 @@ Améliorations v2 :
         </div>
       </div>
       <div class="kpis" id="btKpis"></div>
-      <div class="card"><h3>Courbe de rendement cumulé (FCFA)</h3><canvas id="chartBt" height="220"></canvas></div>
+      <div class="card"><h3>Courbe de rendement cumulé (FCFA)</h3><canvas id="chartBt" height="220" role="img" aria-label="Courbe rendement cumulé net en FCFA"></canvas><p class="muted" style="font-size:11px;margin-top:6px">Si la courbe reste sous 0, la stratégie est perdante sur historique — signal honnête pour l'utilisateur.</p></div>
     </section>
 
     <!-- SYSTEMES -->
@@ -318,15 +321,17 @@ Améliorations v2 :
     <!-- ALERTES -->
     <section class="view" id="view-alert">
       <div class="card">
-        <h3>Acquisition automatique des données <span class="hint">Parser de collage implémenté + CORS fallback</span></h3>
+        <h3>Acquisition automatique des données <span class="hint">Proxy /api/lonaci + /lonaci-proxy + fallback + parser robuste</span></h3>
         <div class="ctrl">
-          <button class="btn btn-gold" id="syncBtn">🔄 Synchroniser le flux officiel</button>
-          <button class="btn btn-ghost" id="pasteToggle">📋 Coller un extrait du site</button>
+          <button class="btn btn-gold" id="syncBtn" aria-label="Synchroniser via proxy backend pour contourner CORS">🔄 Synchroniser via proxy (Vite + serverless)</button>
+          <button class="btn btn-ghost" id="pasteToggle" aria-label="Afficher zone collage manuel">📋 Coller un extrait du site</button>
         </div>
+        <p class="muted" style="font-size:11px;margin-top:8px">Le fetch direct est bloqué par CORS. v2.1 utilise <code>/lonaci-proxy</code> (Vite dev proxy → lotobonheur.ci) et <code>/api/lonaci</code> (serverless). Voir <code>api/lonaci.js</code>. Si indisponible, utilisez import fichier ou collage.</p>
         <div id="pastePanel" style="display:none;margin-top:12px">
+          <label for="pasteArea" class="muted" style="font-size:12px">Texte copié depuis lotobonheur.ci/resultats</label>
           <textarea id="pasteArea" class="input" rows="8" placeholder="Collez ici le texte copié depuis lotobonheur.ci/resultats (jours, sessions, Gagnants, Machine)… Le parser robuste détectera dates & numéros 1-90."></textarea>
-          <button class="btn btn-gold" id="parseBtn" style="margin-top:10px">Analyser & intégrer</button>
-          <p class="muted" style="margin-top:8px;font-size:12px">Le parser supporte : 01/08/2025, 2025-08-01, noms de sessions, blocs de 5+5 numéros.</p>
+          <button class="btn btn-gold" id="parseBtn" style="margin-top:10px">Analyser & intégrer (validation stricte)</button>
+          <p class="muted" style="margin-top:8px;font-size:12px">Parser supporte : 01/08/2025, 2025-08-01, noms sessions, blocs 5+5, validation XSS.</p>
         </div>
         <p class="muted" id="syncInfo" style="margin-top:10px"></p>
       </div>

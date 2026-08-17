@@ -1,5 +1,5 @@
 export const CONFIG = {
-  VERSION: '2.0.0',
+  VERSION: '2.1.0',
   DB_NAME: 'loto-bonheur-v2',
   STORE_DRAWS: 'draws',
   STORE_LOGS: 'logs',
@@ -18,10 +18,16 @@ export const CONFIG = {
     'Digital 21h','Digital 22h','Digital 23h','Soutra','Diamant','Moaye',
     'Afterwork','National','Benediction','Prestige','Awale','Espoir','Midi','Soir','Special'
   ],
+  DATA_URL: '/data/real_data.json',
+  PROXY_ENDPOINTS: [
+    '/lonaci-proxy', // Vite dev proxy
+    '/api/lonaci',   // serverless
+    'https://api.allorigins.win/raw?url=https://lotobonheur.ci/resultats', // public CORS proxy fallback (best effort)
+  ]
 };
 
-// Données d'exemple réelles (extrait - à remplacer par import massif)
-export const REAL_DATA = [
+// Données d'exemple fallback (si fetch JSON échoue) — 26 tirages
+export const REAL_DATA_FALLBACK = [
   ['2026-08-01','Special Weekend 1h','42 2 31 74 25','69 46 66 32 30'],
   ['2026-08-01','Special Weekend 3h','11 37 4 33 6','76 78 19 36 59'],
   ['2026-08-01','Digital Reveil 7h','89 76 29 83 68','41 25 72 43 40'],
