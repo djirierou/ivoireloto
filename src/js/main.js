@@ -859,19 +859,44 @@ function officialPack(){
   return OFFICIAL_DRAWS.map((d,i)=>({id:i+1, date:d.date, session:d.session, win:[...d.win], machine:d.machine?[...d.machine]:[]}));
 }
 
+function mergeHistories(official, extras){
+  const map=new Map();
+  for(const d of official){
+    if(!d?.date || !d?.session || !Array.isArray(d.win) || d.win.length!==5) continue;
+    map.set(d.date+'|'+d.session, {id:d.id, date:d.date, session:d.session, win:[...d.win], machine:d.machine?[...d.machine]:[]});
+  }
+  let recovered=0;
+  for(const d of extras||[]){
+    if(!d?.date || !d?.session || !Array.isArray(d.win) || d.win.length!==5) continue;
+    const k=d.date+'|'+d.session;
+    if(map.has(k)) continue;
+    map.set(k, {id:d.id||Date.now()+recovered+Math.random(), date:d.date, session:d.session, win:[...d.win], machine:d.machine?[...d.machine]:[]});
+    recovered++;
+  }
+  const draws=[...map.values()].sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:String(a.session).localeCompare(b.session,'fr'));
+  draws.forEach((d,i)=>{ if(d.id==null) d.id=i+1; });
+  return {draws, recovered, official:official.length};
+}
+
 async function seedOfficialHistory(){
   const incoming = officialPack();
-  DataLayer.cache.draws = incoming;
+  let extras=[];
+  try{ extras = await DataLayer.collectLegacyDraws(); }catch(e){ console.warn('legacy', e); }
+  extras = extras.concat(DataLayer.cache.draws||[]);
+  const {draws, recovered, official} = mergeHistories(incoming, extras);
+  DataLayer.cache.draws = draws;
   try{
-    await DataLayer.bulkPutDraws(incoming);
+    await DataLayer.bulkPutDraws(draws);
     DataLayer.cache.cfg.dataRevision = CONFIG.DATA_REVISION;
     await DataLayer.saveCfg();
-    await DataLayer.log('info', `Historique officiel rempli : ${incoming.length} tirages (captures LONACI).`);
+    await DataLayer.log('info', recovered
+      ? `Historique fusionné : ${official} officiels + ${recovered} déjà importés = ${draws.length}.`
+      : `Historique officiel rempli : ${draws.length} tirages.`);
   }catch(e){
     console.warn('persist officiel', e);
-    DataLayer.cache.draws = incoming;
+    DataLayer.cache.draws = draws;
   }
-  return {seeded: incoming.length, merged: incoming.length};
+  return {seeded: official, recovered, merged: draws.length};
 }
 
 async function init(){
@@ -882,18 +907,21 @@ async function init(){
   refreshSessions();
   updateStatsUI();
   go('draws');
-  toast(`Historique rempli : ${DataLayer.cache.draws.length} tirages officiels (captures LONACI)`, 'success');
   try{
     await DataLayer.init();
-    await seedOfficialHistory();
+    const r = await seedOfficialHistory();
     DataLayer.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
     refreshSessions();
     updateStatsUI();
     renderHistory();
+    toast(r.recovered
+      ? `Historique : ${r.merged} tirages (${r.seeded} officiels + ${r.recovered} déjà importés)`
+      : `Historique rempli : ${r.merged} tirages officiels`, 'success');
   }catch(e){
     console.warn('init persist', e);
     DataLayer.cache.draws = officialPack();
     renderHistory();
+    toast(`Historique rempli : ${DataLayer.cache.draws.length} tirages officiels`, 'success');
   }
   const hotEl=$('#stHot'), coldEl=$('#stCold');
   if(hotEl) hotEl.value=DataLayer.cache.cfg.hot;

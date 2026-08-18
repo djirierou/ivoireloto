@@ -2,6 +2,7 @@ export const CONFIG = {
   VERSION: '2.2.0',
   DATA_REVISION: 202608182,
   DB_NAME: 'loto-bonheur-official-v22',
+  LEGACY_DB_NAMES: ['loto-bonheur-v2', 'loto-bonheur-v2.1.0', 'loto-bonheur-v2.1.3', 'loto-bonheur-official-v22'],
   STORE_DRAWS: 'draws',
   STORE_LOGS: 'logs',
   STORE_CFG: 'config',

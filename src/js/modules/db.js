@@ -88,6 +88,56 @@ export const DataLayer = {
     return db;
   },
 
+  /** Lit une ancienne base IndexedDB sans la modifier. */
+  async readLegacyDb(name){
+    if(typeof indexedDB === 'undefined') return [];
+    return new Promise((resolve)=>{
+      let done=false;
+      const finish=(rows)=>{ if(done) return; done=true; resolve(rows||[]); };
+      const timer=setTimeout(()=> finish([]), 1200);
+      let req;
+      try{ req=indexedDB.open(name); }catch{ clearTimeout(timer); finish([]); return; }
+      req.onerror=()=>{ clearTimeout(timer); finish([]); };
+      req.onblocked=()=>{ clearTimeout(timer); try{req.result?.close();}catch{} finish([]); };
+      req.onupgradeneeded=(e)=>{
+        // Ne pas créer/altérer une base inconnue
+        try{ e.target.transaction.abort(); }catch{}
+        clearTimeout(timer);
+        finish([]);
+      };
+      req.onsuccess=()=>{
+        const db=req.result;
+        try{
+          if(!db.objectStoreNames.contains(CONFIG.STORE_DRAWS)){
+            db.close(); clearTimeout(timer); finish([]); return;
+          }
+          const tx=db.transaction(CONFIG.STORE_DRAWS,'readonly');
+          const r=tx.objectStore(CONFIG.STORE_DRAWS).getAll();
+          r.onsuccess=()=>{ const rows=r.result||[]; try{db.close();}catch{} clearTimeout(timer); finish(rows); };
+          r.onerror=()=>{ try{db.close();}catch{} clearTimeout(timer); finish([]); };
+        }catch{
+          try{db.close();}catch{}
+          clearTimeout(timer);
+          finish([]);
+        }
+      };
+    });
+  },
+
+  async collectLegacyDraws(){
+    const out=[];
+    const names=[...(CONFIG.LEGACY_DB_NAMES||[])].filter(n=> n!==CONFIG.DB_NAME);
+    for(const name of names){
+      try{
+        const rows=await this.readLegacyDb(name);
+        if(rows && rows.length) out.push(...rows);
+      }catch(e){ console.warn('legacy', name, e); }
+    }
+    const ls=lsGet(CONFIG.LS_FALLBACK.draws, []);
+    if(Array.isArray(ls) && ls.length) out.push(...ls);
+    return out;
+  },
+
   async bulkPutDraws(draws){
     const db = await getDB();
     if(!db || !this.useIDB){
