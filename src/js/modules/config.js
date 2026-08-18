@@ -1,5 +1,5 @@
 export const CONFIG = {
-  VERSION: '2.1.0',
+  VERSION: '2.1.3',
   DB_NAME: 'loto-bonheur-v2',
   STORE_DRAWS: 'draws',
   STORE_LOGS: 'logs',
@@ -18,7 +18,10 @@ export const CONFIG = {
     'Digital 21h','Digital 22h','Digital 23h','Soutra','Diamant','Moaye',
     'Afterwork','National','Benediction','Prestige','Awale','Espoir','Midi','Soir','Special'
   ],
-  DATA_URL: '/data/real_data.json',
+  // Chemin de base de l'application (racine en local, /<repo>/ sur GitHub Pages).
+  // import.meta.env.BASE_URL est injecté par Vite et se termine toujours par '/'.
+  BASE_URL: import.meta.env.BASE_URL || '/',
+  DATA_URL: (import.meta.env.BASE_URL || '/') + 'data/real_data.json',
   PROXY_ENDPOINTS: [
     '/lonaci-proxy', // Vite dev proxy
     '/api/lonaci',   // serverless

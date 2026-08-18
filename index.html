@@ -10,7 +10,7 @@
 <meta property="og:description" content="Analyse statistique Loto Bonheur LONACI - Dashboard, prédictions, backtesting, systèmes">
 <meta property="og:type" content="website">
 <title>Loto Bonheur Analytics Pro — LONACI · Historique 2012-2026 · v2.0</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="./manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23f6b21b'/><text x='50%' y='56%' text-anchor='middle' font-size='36' font-weight='800' fill='%233b2503'>5/90</text></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/plus-jakarta-sans@latest/700.css">
@@ -19,8 +19,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/500.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/600.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/700.css">
-  <script type="module" crossorigin src="/assets/index-CchmExbn.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-VYGV3Dmy.css">
+<link rel="stylesheet" href="./src/css/main.css">
 </head>
 <body>
 <a href="#mainContent" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">Aller au contenu principal</a>
@@ -242,7 +241,7 @@ Améliorations v2 :
     <section class="view" id="view-back">
       <div class="card">
         <h3>Configuration du backtest <span class="hint">Optimisé O(N) + transparence espérance</span></h3>
-        <p class="muted" style="font-size:12px;margin-bottom:12px">Le backtesting teste rétrospectivement une stratégie sur l'historique et affiche le <b>rendement réel net</b> (ROI, espérance par jeu) vs hasard théorique (23% de hit ≥2/5). C'est l'outil de transparence central.</p>
+        <p class="muted" style="font-size:12px;margin-bottom:12px">Le backtesting teste rétrospectivement une stratégie sur l'historique et affiche le <b>rendement réel net</b> (ROI, espérance par jeu) vs hasard théorique (2,33% de hit ≥2/5). C'est l'outil de transparence central.</p>
         <div class="ctrl">
           <div class="fld"><label for="btStrat">Stratégie</label><select class="input" id="btStrat"><option value="hot">Pions chauds (top 5 fréquence)</option><option value="ecart">Pions en retard (top 5 écarts)</option><option value="mix">Mixte (3 chauds + 2 retards)</option><option value="sim">Similitude (≥3 pions communs → N+1)</option><option value="markov">Markov (transitions probables)</option><option value="weighted">N+1 pondéré (decay temporel)</option></select></div>
           <div class="fld"><label for="btWarm">Warmup min.</label><input type="number" class="input num-in" id="btWarm" value="30" aria-label="Warmup minimum"></div>
@@ -350,5 +349,6 @@ Améliorations v2 :
 </div>
 <div id="toasts" aria-live="polite" aria-atomic="true"></div>
 <button class="pwa-install" id="pwaInstall" aria-label="Installer l'application">📱 Installer l'app</button>
+<script type="module" src="./src/js/main.js"></script>
 </body>
 </html>

@@ -40,6 +40,44 @@ function lsSet(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('LS set failed', e); }
 }
 
+/**
+ * Identifiant unique monotone.
+ * /!\ Avant: `Date.now()` (main.js) ou `Date.now()+i+Math.random()` étaient
+ * utilisés comme clé primaire IndexedDB. Deux tirages enregistrés dans la même
+ * milliseconde recevaient la même clé et le second ÉCRASAIT silencieusement le
+ * premier. `Date.now()+i+Math.random()` pouvait aussi collisionner entre deux
+ * imports (i et la partie aléatoire se recouvrant).
+ */
+let _lastId = 0;
+export function nextId(){
+  // Compteur strictement croissant, borné par MAX_SAFE_INTEGER.
+  // Base = horodatage en microsecondes (Date.now()*1000, sûr jusqu'en l'an
+  // 2255) ; si plusieurs identifiants sont demandés dans la même milliseconde
+  // — ou si l'horloge recule (NTP, changement d'heure) — on incrémente
+  // simplement le dernier identifiant émis.
+  const base = Date.now() * 1000;
+  _lastId = base > _lastId ? base : _lastId + 1;
+  return _lastId;
+}
+
+/**
+ * Garantit la forme canonique d'un tirage.
+ * /!\ Les tirages venant d'IndexedDB (anciennes versions) ou d'un JSON externe
+ * peuvent ne pas avoir de champ `machine` -> TypeError dans tous les rendus
+ * (`d.machine.map`, `d.machine.length`...). On normalise une seule fois ici.
+ */
+export function normalizeDraw(d){
+  if(!d || typeof d!=='object') return null;
+  return {
+    ...d,
+    win: Array.isArray(d.win) ? d.win : [],
+    machine: Array.isArray(d.machine) ? d.machine : []
+  };
+}
+export function normalizeDraws(list){
+  return (Array.isArray(list)?list:[]).map(normalizeDraw).filter(Boolean);
+}
+
 export const DataLayer = {
   useIDB: true,
   cache: { draws: [], logs: [], cfg: {hot:15,cold:15} },
@@ -52,7 +90,7 @@ export const DataLayer = {
       const logs = lsGet(CONFIG.LS_FALLBACK.logs, []);
       const cfg = lsGet(CONFIG.LS_FALLBACK.cfg, {hot:15,cold:15});
       if(draws && draws.length){
-        this.cache.draws = draws;
+        this.cache.draws = normalizeDraws(draws);
         this.cache.logs = logs;
         this.cache.cfg = cfg;
       }
@@ -69,7 +107,7 @@ export const DataLayer = {
       const cfgRec = await db.get(CONFIG.STORE_CFG, 'main');
       if(cfgRec) cfg = cfgRec.value;
     }catch{}
-    this.cache.draws = draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
+    this.cache.draws = normalizeDraws(draws).sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
     this.cache.logs = logs.map(l=> ({ts: new Date(l.ts).toLocaleString('fr-FR'), type:l.type, msg:l.msg})).slice(0,250);
     this.cache.cfg = cfg;
 
@@ -83,7 +121,8 @@ export const DataLayer = {
     return db;
   },
 
-  async bulkPutDraws(draws){
+  async bulkPutDraws(rawDraws){
+    const draws = normalizeDraws(rawDraws);
     const db = await getDB();
     if(!db || !this.useIDB){
       lsSet(CONFIG.LS_FALLBACK.draws, draws);
@@ -112,7 +151,7 @@ export const DataLayer = {
     // validate before
     const v = validateDraw(draw);
     if(!v.ok) throw new Error(v.errors.join('; '));
-    const sanitized = {...v.sanitized, id: draw.id || Date.now()+Math.random()};
+    const sanitized = {...v.sanitized, id: draw.id || nextId()};
     const db = await getDB();
     this.cache.draws.push(sanitized);
     this.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
@@ -181,7 +220,7 @@ export const DataLayer = {
       const json = await res.json();
       const validation = validateImportArray(json);
       // add ids
-      const draws = validation.valid.map((d,i)=> ({id: Date.now()+i+Math.random(), ...d}));
+      const draws = validation.valid.map((d)=> ({id: nextId(), ...d}));
       return {draws, skipped: validation.invalid.length, errors: validation.invalid.slice(0,5)};
     }catch(e){
       console.warn('loadRealDataJson failed, fallback', e);
@@ -204,7 +243,7 @@ export const DataLayer = {
       for(const d of batch){
         const key=d.date+'|'+d.session;
         if(!existing.has(key)){
-          newDraws.push({id: Date.now()+imported+Math.random(), ...d});
+          newDraws.push({id: nextId(), ...d});
           existing.add(key);
           imported++;
         } else skippedDup++;
