@@ -8,8 +8,8 @@ let dbPromise = null;
 
 function getDB(){
   if(dbPromise) return dbPromise;
-  dbPromise = openDB(CONFIG.DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion){
+  const opening = openDB(CONFIG.DB_NAME, DB_VERSION, {
+    upgrade(db){
       if(!db.objectStoreNames.contains(CONFIG.STORE_DRAWS)){
         const store = db.createObjectStore(CONFIG.STORE_DRAWS, {keyPath: 'id'});
         store.createIndex('date', 'date');
@@ -26,6 +26,11 @@ function getDB(){
   }).catch(err=>{
     console.warn('IndexedDB unavailable, fallback to localStorage', err);
     return null;
+  });
+  const timeout = new Promise(resolve=> setTimeout(()=> resolve(null), 1500));
+  dbPromise = Promise.race([opening, timeout]).then(db=>{
+    if(!db) console.warn('IndexedDB timeout — mode mémoire');
+    return db;
   });
   return dbPromise;
 }

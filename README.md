@@ -1,12 +1,14 @@
-# Loto Bonheur Analytics Pro — LONACI — v2.0
+# Loto Bonheur Analytics Pro — LONACI — v2.2
 
-Application d'analyse statistique du Loto Bonheur (LONACI Côte d'Ivoire) — historique 2012-2026, prédictions, backtesting, systèmes.
+Application d'analyse statistique du Loto Bonheur (LONACI Côte d'Ivoire) — historique officiel, prédictions, backtesting, systèmes.
 
-> **v2.0** refonte complète: modulaire, IndexedDB, Workers, sécurité XSS, performance O(N), PWA offline.
+> **v2.2** 853 tirages officiels intégrés (captures Facebook LONACI + lotobonheur.ci).  
+> **v2.1** sécurité XSS, validation, PWA, proxy, transparence.  
+> **v2.0** refonte complète: modulaire, IndexedDB, Workers.
 
 ## 🚀 Fonctionnalités
 - **Dashboard**: KPIs, top pions, classification chaud/froid, tirages/jour
-- **Données historiques**: import CSV/JSON massif (50k+), drag&drop, parser robuste guillemets, progression, IndexedDB
+- **Données historiques**: **853 tirages officiels** livrés (27 sessions hebdo août 2025–fév. 2026 + août 2026), import CSV/JSON, drag&drop, IndexedDB
 - **Gestion tirages**: CRUD avec validation, déduplication date+session
 - **Statistiques**: fréquence, écart, grille 90, seuils configurables
 - **Co-occurrences**: paires + triplets (nouveau), heatmap top12

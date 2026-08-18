@@ -116,7 +116,7 @@ export function parsePasteText(text){
   let currentSession=null;
 
   const dateRegex = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})|(\d{4}-\d{2}-\d{2})/;
-  const sessionRegex = /(Special Weekend|Digital Reveil|Digital \d+h|Soutra|Diamant|Moaye|Afterwork|National|Benediction|Prestige|Awale|Espoir|Midi|Soir|Special)/i;
+  const sessionRegex = /(Special Weekend(?:\s+[13]h)?|Digital Reveil(?:\s+\d+h)?|Digital \d+h|La Matinale|Premiere Heure|Lucky Tuesday|Monday Special|Fortune Thursday|Friday Bonanza|Afterwork|Day Off|Reveil|Etoile|Akwaba|Emergence|Sika|Fortune|Baraka|Midweek|Kado|Privilege|Monni|Cash|Solution|Wari|Soutra|Diamant|Moaye|National|Benediction|Prestige|Awale|Espoir|Midi|Soir|Special)/i;
   const numbersRegex = /(\b\d{1,2}\b[\s\-]+){4,}\b\d{1,2}\b/g;
 
   for(const line of lines){

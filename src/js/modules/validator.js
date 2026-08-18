@@ -61,8 +61,8 @@ export function validateDraw(obj){
     sanitized:{
       date: obj.date,
       session: sess,
-      win: [...obj.win].sort((a,b)=>a-b),
-      machine: mach.length? [...mach].sort((a,b)=>a-b) : []
+      win: [...obj.win],
+      machine: mach.length? [...mach] : []
     }
   };
 }

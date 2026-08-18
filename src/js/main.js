@@ -1,4 +1,5 @@
 import { CONFIG } from './modules/config.js';
+import { OFFICIAL_DRAWS } from './data/officialDraws.js';
 import { $, $$, iso, fmtDate, sum, escapeHTML, parseCSV, parsePasteText, toast, downloadCSV, ball, debounce, C, combsIter } from './modules/utils.js';
 import { DataLayer } from './modules/db.js';
 import { StatsEngine, invalidateCache } from './modules/stats.js';
@@ -16,7 +17,7 @@ let lastBacktestReport = null;
 const TITLES = {
   dash:'Tableau de bord',
   data:'Données historiques',
-  draws:'Gestion & intégrité des tirages',
+  draws:'Historique officiel LONACI',
   stats:'Moteur statistiques & indicateurs',
   cooc:'Matrice de corrélation & co-occurrences',
   sim:'Recherche par similitude avancée',
@@ -160,51 +161,77 @@ function renderDash(){
 }
 
 let histPage=1; const HIST_PER_PAGE=50;
+let histSessionTab='';
 function filteredHistory(){
-  let list=[...DataLayer.cache.draws].reverse();
+  let list=[...DataLayer.cache.draws].sort((a,b)=> a.date<b.date?1:a.date>b.date?-1:0);
   const from=$('#fFrom')?.value, to=$('#fTo')?.value, num=parseInt($('#fNum')?.value,10), scope=$('#fScope')?.value||'both', ses=$('#fSession')?.value;
   if(from) list=list.filter(d=>d.date>=from);
   if(to) list=list.filter(d=>d.date<=to);
   if(ses) list=list.filter(d=>d.session===ses);
+  if(histSessionTab) list=list.filter(d=>d.session===histSessionTab);
   if(!isNaN(num)&&num>=1&&num<=90) list=list.filter(d=> scope==='win'?d.win.includes(num): scope==='machine'?d.machine.includes(num): (d.win.includes(num)||d.machine.includes(num)));
   return list;
 }
+function officialTitle(session){
+  return (CONFIG.SESSION_TITLES && CONFIG.SESSION_TITLES[session]) || ('TIRAGE '+session).toUpperCase();
+}
+function cellNums(arr){
+  if(!arr || !arr.length) return '<td colspan="5">—</td>';
+  return arr.map(n=>`<td>${n}</td>`).join('');
+}
 function renderHistory(){
+  const draws=DataLayer.cache.draws;
   const all=filteredHistory();
-  const total=all.length;
-  const pages=Math.max(1, Math.ceil(total / HIST_PER_PAGE));
-  if(histPage>pages) histPage=pages;
-  const list=all.slice((histPage-1)*HIST_PER_PAGE, histPage*HIST_PER_PAGE);
   const countEl=$('#histCount');
-  if(countEl) countEl.textContent=`${total} tirage(s) — page ${histPage}/${pages} — ${HIST_PER_PAGE} par page`;
-  const body=$('#histBody');
-  if(!body) return;
-  body.innerHTML=list.map(d=>
-    `<tr><td><b>${escapeHTML(fmtDate(d.date))}</b></td><td>${escapeHTML(d.session)}</td><td><div style="display:flex;gap:5px;flex-wrap:wrap" aria-label="Win">${d.win.map(n=>ball(n,'win sm')).join('')}</div></td><td>${d.machine.length?`<div style="display:flex;gap:5px;flex-wrap:wrap" aria-label="Machine">${d.machine.map(n=>ball(n,'machine sm')).join('')}</div>`:'<span class="muted">—</span>'}</td><td class="muted">${sum(d.win)}</td></tr>`
-  ).join('')||`<tr><td colspan="5" class="muted">Aucun résultat.</td></tr>`;
+  if(countEl) countEl.textContent=`${all.length} / ${draws.length} tirage(s) officiels`;
 
-  let pag=$('#histPagination');
-  if(!pag){
-    pag=document.createElement('div'); pag.id='histPagination'; pag.className='pagination'; pag.setAttribute('role','navigation'); pag.setAttribute('aria-label','Pagination historique');
-    body.closest('.card')?.appendChild(pag);
+  const pills=$('#sessionPills');
+  if(pills){
+    const present=[...new Set(draws.map(d=>d.session))];
+    const order=CONFIG.SESSION_LIST.filter(s=>present.includes(s)).concat(present.filter(s=>!CONFIG.SESSION_LIST.includes(s)));
+    pills.innerHTML=`<button type="button" data-s="" class="${!histSessionTab?'on':''}">Toutes</button>`+
+      order.map(s=>`<button type="button" data-s="${escapeHTML(s)}" class="${histSessionTab===s?'on':''}">${escapeHTML(s)}</button>`).join('');
+    pills.querySelectorAll('button').forEach(b=> b.addEventListener('click',()=>{
+      histSessionTab=b.dataset.s||'';
+      const sel=$('#fSession'); if(sel) sel.value=histSessionTab;
+      renderHistory();
+    }));
   }
-  pag.innerHTML=`
-    <button ${histPage<=1?'disabled':''} data-p="prev" aria-label="Page précédente">◀ Préc</button>
-    ${Array.from({length:Math.min(pages,7)},(_,i)=>{
-      let p;
-      if(pages<=7) p=i+1;
-      else if(histPage<=4) p=i+1;
-      else if(histPage>=pages-3) p=pages-6+i;
-      else p=histPage-3+i;
-      return `<button class="${p===histPage?'active':''}" data-p="${p}" aria-label="Page ${p}" ${p===histPage?'aria-current="page"':''}>${p}</button>`;
-    }).join('')}
-    <button ${histPage>=pages?'disabled':''} data-p="next" aria-label="Page suivante">Suiv ▶</button>
-  `;
-  pag.querySelectorAll('button').forEach(b=> b.addEventListener('click',()=>{
-    const v=b.dataset.p;
-    if(v==='prev') histPage--; else if(v==='next') histPage++; else histPage=parseInt(v,10);
-    renderHistory();
-  }));
+
+  const host=$('#officialTables');
+  if(host){
+    const bySession=new Map();
+    all.forEach(d=>{
+      if(!bySession.has(d.session)) bySession.set(d.session, []);
+      bySession.get(d.session).push(d);
+    });
+    const sessions=[...bySession.keys()];
+    host.innerHTML=sessions.length? sessions.map(session=>{
+      const rows=bySession.get(session);
+      return `<div class="official-sheet">
+        <h4>${escapeHTML(officialTitle(session))}</h4>
+        <div class="subh">Résultats des ${rows.length} derniers tirages — captures LONACI</div>
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2">Date</th>
+              <th colspan="5">5 premiers chiffres tirés</th>
+              <th colspan="5">5 derniers chiffres tirés</th>
+            </tr>
+            <tr>
+              <th>1er</th><th>2ème</th><th>3ème</th><th>4ème</th><th>5ème</th>
+              <th>86ème</th><th>87ème</th><th>88ème</th><th>89ème</th><th>90ème</th>
+            </tr>
+          </thead>
+          <tbody>${rows.map(d=>`<tr>
+            <td class="datecell">${escapeHTML(fmtDate(d.date))}</td>
+            ${cellNums(d.win)}
+            ${d.machine.length?cellNums(d.machine):'<td colspan="5">—</td>'}
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    }).join('') : '<p class="muted">Aucun tirage.</p>';
+  }
 }
 
 let stSort={key:'num'};
@@ -495,7 +522,7 @@ async function handleFiles(files){
         const pf=$('#progressFill'); if(pf){ pf.style.width=prog+'%'; pf.textContent=prog+'%'; }
         const st=$('#importStatus'); if(st) st.textContent=`${imp} importés, ${skip} rejetés/doublons...${invalid && invalid.length? ` (${invalid.length} invalides)` : ''}`;
       });
-      updateStatsUI(); invalidateCache(); refreshBadge();
+      updateStatsUI(); invalidateCache(); refreshBadge(); refreshSessions();
       const stEl=$('#importStatus'); if(stEl) stEl.textContent=`✅ Terminé : ${result.imported} importés, ${result.skipped} rejetés`;
       if(result.invalid && result.invalid.length){
         toast(`✅ ${result.imported} importés, ${result.invalid.length} invalides rejetés (sécurité)`, result.imported?'success':'error');
@@ -509,6 +536,21 @@ async function handleFiles(files){
   }
 }
 
+function refreshSessions(){
+  const fromData = DataLayer.cache.draws.map(d=>d.session);
+  const sessions=[...new Set([...CONFIG.SESSION_LIST, ...fromData])].sort((a,b)=>a.localeCompare(b,'fr'));
+  const dfSession=$('#dfSession'); if(dfSession){
+    const cur=dfSession.value;
+    dfSession.innerHTML=sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
+    if(cur && sessions.includes(cur)) dfSession.value=cur;
+  }
+  const fSession=$('#fSession'); if(fSession){
+    const cur=fSession.value;
+    fSession.innerHTML='<option value="">Toutes</option>'+sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
+    if(cur) fSession.value=cur;
+  }
+}
+
 function buildInputs(){
   const w=$('#winInputs'), m=$('#machInputs');
   if(!w||!m) return;
@@ -517,9 +559,7 @@ function buildInputs(){
     w.insertAdjacentHTML('beforeend',`<div class="fld"><label for="w${i}">W${i}</label><input type="number" min="1" max="90" class="input num-in" id="w${i}" aria-label="Numéro gagnant ${i}"></div>`);
     m.insertAdjacentHTML('beforeend',`<div class="fld"><label for="m${i}">M${i}</label><input type="number" min="1" max="90" class="input num-in" id="m${i}" aria-label="Numéro machine ${i}"></div>`);
   }
-  const sessions=[...new Set([...CONFIG.SESSION_LIST])].sort();
-  const dfSession=$('#dfSession'); if(dfSession) dfSession.innerHTML=sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
-  const fSession=$('#fSession'); if(fSession) fSession.innerHTML='<option value="">Toutes</option>'+sessions.map(s=>`<option>${escapeHTML(s)}</option>`).join('');
+  refreshSessions();
 }
 
 function buildSysGrid(){
@@ -571,7 +611,8 @@ function wireEvents(){
         $('#importProgress').style.display='block';
         const result=await DataLayer.importData(json, (p,i,s)=>{ const pf=$('#progressFill'); if(pf){ pf.style.width=p+'%'; pf.textContent=p+'%'; } const st=$('#importStatus'); if(st) st.textContent=`${i} importés...`; });
         updateStatsUI(); invalidateCache(); refreshBadge();
-        toast(`✅ Données réelles chargées : ${result.imported} tirages`);
+        toast(`✅ Historique officiel chargé : ${result.imported} tirages`);
+        refreshSessions();
         return;
       }
     }catch(e){ console.warn(e); }
@@ -631,7 +672,7 @@ function wireEvents(){
         if(arr.includes(v)){ if(el) el.classList.add('err'); errs.push(`Doublon ${pre==='w'?'Win':'Machine'} (${v}).`); continue; }
         arr.push(v);
       }
-      return arr.sort((a,b)=>a-b);
+      return arr;
     }
     const win=readBlock('w',false), mach=readBlock('m',noM);
     // Validate via validator
@@ -654,10 +695,13 @@ function wireEvents(){
   });
 
   ['fFrom','fTo','fNum','fScope','fSession'].forEach(id=>{
-    const el=$('#'+id); if(el) el.addEventListener('change',()=>{ histPage=1; renderHistory(); });
+    const el=$('#'+id); if(el) el.addEventListener('change',()=>{
+      if(id==='fSession') histSessionTab=el.value||'';
+      histPage=1; renderHistory();
+    });
   });
   const fReset=$('#fReset');
-  if(fReset) fReset.addEventListener('click',()=>{ ['fFrom','fTo','fNum'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; }); const s1=$('#fScope'); if(s1) s1.value='both'; const s2=$('#fSession'); if(s2) s2.value=''; histPage=1; renderHistory(); });
+  if(fReset) fReset.addEventListener('click',()=>{ ['fFrom','fTo','fNum'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; }); const s1=$('#fScope'); if(s1) s1.value='both'; const s2=$('#fSession'); if(s2) s2.value=''; histSessionTab=''; histPage=1; renderHistory(); });
   const histCsv=$('#btnHistCsv');
   if(histCsv) histCsv.addEventListener('click',()=>{
     const list=filteredHistory();
@@ -780,15 +824,20 @@ function wireEvents(){
   if(clearLogs) clearLogs.addEventListener('click', async ()=>{ await DataLayer.clearLogs(); renderLogs(); toast('Journal vidé','info'); });
   const resetData=$('#btnResetData');
   if(resetData) resetData.addEventListener('click', async ()=>{
-    if(!confirm('Restaurer les données officielles depuis /data/real_data.json ?')) return;
+    if(!confirm('Restaurer les données officielles depuis /data/real_data.json ? Les saisies manuelles non présentes dans le fichier seront perdues.')) return;
     const {draws} = await DataLayer.loadRealDataJson();
     await DataLayer.clearDraws(); await DataLayer.bulkPutDraws(draws);
-    updateStatsUI(); invalidateCache(); refreshBadge(); DataLayer.log('info','Données officielles restaurées depuis JSON.'); toast('Données restaurées ⟲','info'); go('dash');
+    DataLayer.cache.cfg.dataRevision = CONFIG.DATA_REVISION;
+    await DataLayer.saveCfg();
+    updateStatsUI(); invalidateCache(); refreshBadge(); refreshSessions();
+    DataLayer.log('info',`Données officielles restaurées : ${draws.length} tirages.`);
+    toast(`Données restaurées ⟲ — ${draws.length} tirages`,'info'); go('dash');
   });
 }
 
 function initPWA(){
   if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations?.().then(rs=> rs.forEach(r=> r.unregister())).catch(()=>{});
     navigator.serviceWorker.register('/sw.js').then(r=> {
       console.log('SW ok',r.scope);
       // check for updates
@@ -806,30 +855,50 @@ function initPWA(){
   window.addEventListener('offline',()=> toast('Hors-ligne — PWA cache actif','info'));
 }
 
+function officialPack(){
+  return OFFICIAL_DRAWS.map((d,i)=>({id:i+1, date:d.date, session:d.session, win:[...d.win], machine:d.machine?[...d.machine]:[]}));
+}
+
+async function seedOfficialHistory(){
+  const incoming = officialPack();
+  DataLayer.cache.draws = incoming;
+  try{
+    await DataLayer.bulkPutDraws(incoming);
+    DataLayer.cache.cfg.dataRevision = CONFIG.DATA_REVISION;
+    await DataLayer.saveCfg();
+    await DataLayer.log('info', `Historique officiel rempli : ${incoming.length} tirages (captures LONACI).`);
+  }catch(e){
+    console.warn('persist officiel', e);
+    DataLayer.cache.draws = incoming;
+  }
+  return {seeded: incoming.length, merged: incoming.length};
+}
+
 async function init(){
+  DataLayer.cache.draws = officialPack();
   buildInputs();
   buildSysGrid();
   wireEvents();
-  await DataLayer.init();
-  if(!DataLayer.cache.draws.length){
-    // try load JSON first
-    const {draws} = await DataLayer.loadRealDataJson();
-    if(draws.length){
-      await DataLayer.bulkPutDraws(draws);
-      await DataLayer.log('info',`Import officiel JSON : ${draws.length} tirages.`);
-    } else {
-      const fallback = DataLayer.parseRealFallback();
-      await DataLayer.bulkPutDraws(fallback.draws);
-    }
+  refreshSessions();
+  updateStatsUI();
+  go('draws');
+  toast(`Historique rempli : ${DataLayer.cache.draws.length} tirages officiels (captures LONACI)`, 'success');
+  try{
+    await DataLayer.init();
+    await seedOfficialHistory();
+    DataLayer.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
+    refreshSessions();
+    updateStatsUI();
+    renderHistory();
+  }catch(e){
+    console.warn('init persist', e);
+    DataLayer.cache.draws = officialPack();
+    renderHistory();
   }
-  DataLayer.cache.draws.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:a.id-b.id);
   const hotEl=$('#stHot'), coldEl=$('#stCold');
   if(hotEl) hotEl.value=DataLayer.cache.cfg.hot;
   if(coldEl) coldEl.value=DataLayer.cache.cfg.cold;
-  updateStatsUI();
-  const bootAlerts=refreshBadge();
-  if(bootAlerts.length) setTimeout(()=> toast(`${bootAlerts.length} alerte(s) — voir Alertes & Sync 🔔`,'info'),800);
-  renderDash();
+  refreshBadge();
   initPWA();
 
   // a11y live region

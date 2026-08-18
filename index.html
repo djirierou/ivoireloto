@@ -9,7 +9,7 @@
 <meta property="og:title" content="Loto Bonheur Analytics Pro">
 <meta property="og:description" content="Analyse statistique Loto Bonheur LONACI - Dashboard, prédictions, backtesting, systèmes">
 <meta property="og:type" content="website">
-<title>Loto Bonheur Analytics Pro — LONACI · Historique 2012-2026 · v2.0</title>
+<title>Loto Bonheur Analytics Pro — LONACI · Historique officiel · v2.2</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23f6b21b'/><text x='50%' y='56%' text-anchor='middle' font-size='36' font-weight='800' fill='%233b2503'>5/90</text></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -27,11 +27,11 @@
   <aside class="sidebar" aria-label="Navigation principale">
     <div class="brand">
       <div class="brand-ball" aria-hidden="true">5/90</div>
-      <div><b>Loto Bonheur</b><span>Analytics Pro v2.1 · LONACI</span></div>
+      <div><b>Loto Bonheur</b><span>Analytics Pro v2.2 · LONACI</span></div>
     </div>
-    <button class="nav-btn active" data-view="dash" aria-current="page" aria-label="Tableau de bord, KPIs et graphiques">▦ Tableau de bord</button>
+    <button class="nav-btn" data-view="dash" aria-label="Tableau de bord, KPIs et graphiques">▦ Tableau de bord</button>
     <button class="nav-btn" data-view="data" aria-label="Données historiques, import CSV JSON">📥 Données historiques</button>
-    <button class="nav-btn" data-view="draws" aria-label="Gestion des tirages, saisie manuelle">🗂 Gestion des tirages</button>
+    <button class="nav-btn active" data-view="draws" aria-current="page" aria-label="Historique officiel des tirages LONACI">📜 Historique officiel</button>
     <button class="nav-btn" data-view="stats" aria-label="Statistiques fréquence chaud froid écarts">📊 Statistiques</button>
     <button class="nav-btn" data-view="cooc" aria-label="Co-occurrences paires triplets matrice chaleur">🔗 Co-occurrences</button>
     <button class="nav-btn" data-view="sim" aria-label="Similitude avancée recherche tirages similaires">🧬 Similitude avancée</button>
@@ -43,7 +43,7 @@
     <div class="side-foot">
       <span>Base : <b id="dataCount" style="color:var(--green)">0</b> tirages<br>
       <span id="dataPeriod">—</span><br>
-      <small style="color:var(--muted)">v2.0 • IndexedDB • Workers</small>
+      <small style="color:var(--muted)">v2.2 • 1187 tirages officiels</small>
       </span>
       <button id="btnResetData" title="Restaurer les données officielles">⟲ Restaurer les données officielles</button>
     </div>
@@ -51,16 +51,16 @@
 
   <main id="mainContent">
     <div class="topbar">
-      <h1 id="topTitle">Tableau de bord</h1>
+      <h1 id="topTitle">Historique officiel LONACI</h1>
       <div class="top-right">
-        <span class="src-chip" title="Source: IndexedDB avec fallback localStorage, données chargées via /data/real_data.json">✅ Données IndexedDB + JSON externe</span>
+        <span class="src-chip" title="1187 tirages officiels : captures LONACI + API lotobonheur.ci (juillet + août 2026), ordre de sortie conservé">✅ 1187 tirages officiels LONACI</span>
         <select class="role-sel" id="roleSel" aria-label="Sélection rôle administrateur ou analyste"><option value="admin">👑 Administrateur</option><option value="analyst">📊 Analyste / Joueur</option></select>
         <span class="date-chip" id="topDate" aria-live="polite"></span>
       </div>
     </div>
 
     <!-- DASHBOARD -->
-    <section class="view active" id="view-dash" aria-labelledby="topTitle">
+    <section class="view" id="view-dash" aria-labelledby="topTitle">
       <div class="kpis" id="dashKpis"><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div></div>
       <div class="card" id="transparencyCard" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)"><p class="muted" style="font-size:12px">🔎 <b>Transparence:</b> Le backtesting affiche l'espérance réelle (ROI, net). Le Loto est aléatoire — aucune prédiction garantie. Jouez responsable.</p></div>
       <div class="grid-2">
@@ -85,7 +85,7 @@
         </div>
         <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-gold" id="btnImportFile">📤 Importer un fichier</button>
-          <button class="btn btn-ghost" id="btnLoadSample">🎲 Charger démo 2012-2026</button>
+          <button class="btn btn-gold" id="btnLoadSample">📜 Charger l'historique officiel</button>
           <button class="btn btn-ghost" id="btnExportAll">⬇ Exporter toute la base</button>
           <button class="btn btn-danger" id="btnClearAll">🗑 Vider la base</button>
         </div>
@@ -125,7 +125,7 @@ Améliorations v2 :
     </section>
 
     <!-- TIRAGES -->
-    <section class="view" id="view-draws">
+    <section class="view active" id="view-draws">
       <div class="card" id="adminFormCard">
         <h3>Enregistrer un tirage <span class="hint">Win & Machine · 5 numéros distincts (1–90) · Validation + XSS escape</span></h3>
         <form id="drawForm">
@@ -145,8 +145,9 @@ Améliorations v2 :
           </div>
         </form>
       </div>
-      <div class="card">
-        <h3>Historique & consultation <span class="hint">Pagination 50 + filtres debounced</span></h3>
+      <div class="card official-hist-card">
+        <h3>Historique officiel — captures LONACI <span class="hint" id="histCount">chargement…</span></h3>
+        <p class="muted" style="font-size:12px;margin-bottom:12px">Tableaux identiques aux captures Facebook <b>Loto Bonheur Lonaci Officiel</b> : 5 premiers chiffres tirés (Win) et 5 derniers (Machine).</p>
         <div class="ctrl" style="margin-bottom:12px">
           <div class="fld"><label for="fFrom">Du</label><input type="date" class="input" id="fFrom"></div>
           <div class="fld"><label for="fTo">Au</label><input type="date" class="input" id="fTo"></div>
@@ -156,9 +157,10 @@ Améliorations v2 :
           <button class="btn btn-ghost" id="fReset">Réinitialiser</button>
           <button class="btn btn-ghost" id="btnHistCsv">⬇ Export CSV</button>
         </div>
-        <p class="muted" id="histCount" style="margin-bottom:10px"></p>
-        <div class="table-wrap">
-          <table><thead><tr><th>Date</th><th>Session</th><th>Win (Gagnants)</th><th>Machine</th><th>Σ Win</th></tr></thead><tbody id="histBody"></tbody></table>
+        <div class="session-pills" id="sessionPills" role="tablist" aria-label="Sessions officielles"></div>
+        <div id="officialTables"></div>
+        <div class="table-wrap" id="histFallbackWrap" style="display:none">
+          <table><thead><tr><th>Date</th><th>Session</th><th>1er–5ème (Win)</th><th>86ème–90ème (Machine)</th></tr></thead><tbody id="histBody"></tbody></table>
         </div>
       </div>
     </section>

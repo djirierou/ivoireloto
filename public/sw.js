@@ -1,4 +1,4 @@
-const CACHE_NAME = 'loto-bonheur-v2.1.0';
+const CACHE_NAME = 'loto-bonheur-v2.2.2';
 const ASSETS_CORE = [
   '/',
   '/index.html',
