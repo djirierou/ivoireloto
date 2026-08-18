@@ -1,0 +1,5 @@
+git checkout arena/01a0117c-ivoireloto && git pull
+mkdir -p .github/workflows
+# coller le contenu dans .github/workflows/deploy.yml
+git add .github/workflows/deploy.yml
+git commit -m 'ci: workflow de déploiement Pages' && git push
