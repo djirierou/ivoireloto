@@ -1,5 +1,79 @@
-git checkout arena/01a0117c-ivoireloto && git pull
-mkdir -p .github/workflows
-# coller le contenu dans .github/workflows/deploy.yml
-git add .github/workflows/deploy.yml
-git commit -m 'ci: workflow de déploiement Pages' && git push
+name: Déploiement GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permet de déclencher le déploiement manuellement depuis l'onglet Actions
+  workflow_dispatch:
+
+# Autorisations nécessaires au déploiement Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on n'annule pas celui en cours
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Construction
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installation des dépendances
+        run: npm ci
+
+      - name: Analyse statique
+        run: npm run lint
+
+      - name: Tests de non-régression
+        run: npm test
+
+      - name: Build de production
+        # GitHub Pages sert le site sous /<repo>/ : les assets doivent être
+        # préfixés en conséquence (cf. `base` dans vite.config.js).
+        run: BASE_PATH="/${GITHUB_REPOSITORY#*/}/" npm run build
+
+      - name: Repli SPA (404 -> index.html)
+        # Les vues sont gérées côté client ; un rechargement sur une URL
+        # inconnue doit retomber sur l'application plutôt que sur le 404 GitHub.
+        run: cp dist/index.html dist/404.html
+
+      - name: Désactivation de Jekyll
+        # Sans ce fichier, Pages ignore les dossiers commençant par « _ ».
+        run: touch dist/.nojekyll
+
+      - name: Configuration de Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Bascule le dépôt du mode « legacy » (qui servait les sources brutes
+          # depuis main) vers un déploiement piloté par ce workflow.
+          enablement: true
+
+      - name: Publication de l'artefact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Déploiement
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Mise en ligne
+        id: deployment
+        uses: actions/deploy-pages@v4
